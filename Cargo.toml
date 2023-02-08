@@ -1,0 +1,12 @@
+[package]
+name = "sync-dotfiles-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Utsav Balar <utsavbalar1231@gmail.com>"]
+
+
+[dependencies]
+anyhow = "1.0.69"
+ron = "0.8"
+serde = { version = "1", features = ["derive"] }
+home = "0.5.4"

@@ -1,0 +1,9 @@
+#![enable(implicit_some)]
+(
+    config: [
+        (name: "nvim", path: "~/.config/nvim", dir: true, last_modified: (secs_since_epoch: 1674294036, nanos_since_epoch: 488146891)),
+        (name: "zsh", path: "~/.config/zsh", dir: true, last_modified: (secs_since_epoch: 1675537617, nanos_since_epoch: 309892820)),
+        (name: "polybar", path: "~/.config/polybar", dir: true, last_modified: (secs_since_epoch: 1675570311, nanos_since_epoch: 776408362)),
+        (name: "leftwm", path: "~/.config/leftwm", dir: true, last_modified: (secs_since_epoch: 1675768166, nanos_since_epoch: 225934540)),
+    ],
+)

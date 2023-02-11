@@ -1,4 +1,6 @@
-use sync_dotfiles_rs::dotconfig::*;
+use std::env::args;
+use sync_dotfiles_rs::dotconfig::DotConfig;
+use sync_dotfiles_rs::*;
 
 fn parse_dotconfig() -> Result<DotConfig> {
     let mut file = File::open("config.ron")?;
@@ -14,12 +16,28 @@ fn parse_dotconfig() -> Result<DotConfig> {
 }
 
 fn main() -> Result<()> {
+    let args = args().skip(1).collect::<Vec<_>>();
     let dotconfig = parse_dotconfig().context("Failed to parse config file")?;
 
-    let modified_dotconfig = dotconfig.update_dotconfig()?;
-    modified_dotconfig
-        .save_config()
-        .context("Failed to save config file")?;
+    if args.is_empty() {
+        println!("No arguments provided, doing nothing.");
+        return Ok(());
+    }
+
+    match args[0].as_str() {
+        "update" | "u" => {
+            let modified_dotconfig = dotconfig.sync_configs()?;
+            modified_dotconfig
+                .save_configs()
+                .context("Failed to save config file")?;
+        }
+        "force" | "f" => {
+            dotconfig.force_sync_configs()?;
+        }
+        _ => {
+            println!("Invalid argument provided, doing nothing.");
+        }
+    }
 
     Ok(())
 }

@@ -2,17 +2,47 @@
 ---
 
 ### Features
-1. Check inside config folders if any file is modified.
-2. Easy to configure using `config.ron`.
+- Update your dotconfigs all at once based on the configuration.
+- Check inside each config folders and update only if config folder is modified.
+- Easy to configure it yourself by simply modifying `config.ron` file.
 ---
 
 ### Example
-The default configuration inside config.ron is a structure DotConfig containing a list of structure Config
+The default configuration inside config.ron is a structure DotConfig containing a repo to store your configs and a structure Config which is a list of all the configs (it can be a directory or a single config file).
+
+Force Update initially to get the folders synced once.
+This will force create and copy all the files from your config folders in your environment (excluding .git files)
+```bash
+./sync-dotfiles -f
+```
+Or
+
+```bash
+./sync-dotfiles --force
+```
+___
+
+To Update your configs once they were synced for the first time
+```bash
+./sync-dotfiles -u
+```
+Or
+
+```bash
+./sync-dotfiles --update
+```
+---
+
+### Configs structure
+
 ```rust
+/// Dotconfig structure that holds a dotconfigs_path handle and a handle to a list of configs
 DotConfig {
+    dotconfigs_path: String,
     configs: Vec<Config>,
 }
 
+/// Config structure that holds the name, path and hash of the config folder/file
 Config {
     name: String,
     path: String,
@@ -21,10 +51,11 @@ Config {
 ```
 ---
 
-Default configuration in config.ron
+Default configuration inside config.ron looks like a tuple of dotconfigs_path and configs variables
 ```bash
 #![enable(implicit_some)]
 (
+    dotconfigs_path: ""
     configs: [],
 )
 ```
@@ -33,6 +64,7 @@ Default configuration in config.ron
 You can insert new config in configs list by simply modifying configs list
 The hash of the config initially can be None and you can update it later.
 ```bash
+dotconfigs_path: "/home/<username>/my-dotfiles/configs/"
 configs: [
     (name: "nvim", path: "~/.config/nvim", hash: None),
 ],

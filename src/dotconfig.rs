@@ -1,83 +1,23 @@
-pub use anyhow::{Context, Result};
-use crypto_hash::{hex_digest, Algorithm};
-pub use ron::{
-    extensions::Extensions,
-    ser::{to_string_pretty, PrettyConfig},
-    Options,
-};
-use serde::{Deserialize, Serialize};
-pub use std::{fs::File, io::Read};
-use std::{io::Write, path::PathBuf, str::FromStr};
-use walkdir::WalkDir;
+use crate::config::Config;
+use crate::*;
+use std::io::Write;
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct DotConfig {
+    pub dotconfigs_path: String,
     pub configs: Vec<Config>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct Config {
-    pub name: String,
-    pub path: String,
-    pub hash: Option<String>,
-}
-
-/// Hashes the contents of a file and returns the hash as a string
-fn hash_file(bytes: &[u8]) -> String {
-    hex_digest(Algorithm::SHA256, bytes)
-}
-
-/// Fix the path to be absolute and not relative
-pub fn fix_path(path: &str) -> String {
-    if !path.starts_with('~') {
-        return String::from(path);
-    }
-    path.replace(
-        '~',
-        home::home_dir()
-            .expect("Failed to get home directory")
-            .as_path()
-            .to_str()
-            .unwrap(),
-    )
-}
-
-/// Check if the path has changed since the last time it was hashed
-fn check_update_metadata_required(config: &Config) -> Option<()> {
-    if let Ok(metadata_digest) = metadata_digest(&config.path) {
-        if Some(metadata_digest) == config.hash {
-            return Some(());
-        }
-    }
-    None
-}
-
-/// Hashes the metadata of a file/dir and returns the hash as a string
-fn metadata_digest(path: &str) -> Result<String> {
-    // TODO: Optimize this to not have to create a new string
-    let path = fix_path(path);
-    let path = PathBuf::from_str(&path).unwrap();
-    let mut hashes = Vec::new();
-
-    if path.is_dir() {
-        for entry in WalkDir::new(path) {
-            let entry = entry?;
-            let child_path = entry.path();
-            if child_path.is_file() {
-                let mut file = File::open(child_path)?;
-                let mut contents = Vec::new();
-                file.read_to_end(&mut contents)?;
-                hashes.push(hash_file(&contents));
-            }
-        }
-    }
-
-    Ok(hash_file(hashes.join("").as_bytes()))
-}
-
 impl DotConfig {
-    /// Save the config file to disk
-    pub fn save_config(&self) -> Result<()> {
+    fn from(path: &String) -> Self {
+        DotConfig {
+            dotconfigs_path: path.to_string(),
+            configs: Vec::new(),
+        }
+    }
+
+    /// Save the config files to disk
+    pub fn save_configs(&self) -> Result<()> {
         let ron_pretty = PrettyConfig::new()
             .depth_limit(2)
             .extensions(Extensions::IMPLICIT_SOME);
@@ -90,33 +30,38 @@ impl DotConfig {
         Ok(())
     }
 
-    /// Update the digest of all configs in the config file
-    pub fn update_dotconfig(&self) -> Result<Self> {
-        let mut new_dotconfig = DotConfig::default();
-        println!("default dotconfig: {:#?}", new_dotconfig);
+    /// Update all the configs mentioned in the config file
+    /// TODO: Optimize this, Reduce the cloning
+    pub fn sync_configs(&self) -> Result<Self> {
+        let mut new_dotconfig = DotConfig::from(&self.dotconfigs_path);
 
         for dir in &self.configs {
-            if check_update_metadata_required(dir).is_none() {
+            if dir.check_update_metadata_required().is_ok() {
                 println!("Updating {}.", dir.name);
-                let new_hash = metadata_digest(&dir.path)?;
+                let new_hash = dir.metadata_digest()?;
 
-                new_dotconfig.configs.push(Config::new(
-                    dir.name.clone(),
-                    dir.path.clone(),
-                    Some(new_hash),
-                ));
+                new_dotconfig
+                    .configs
+                    .push(Config::new(&dir.name, &dir.path, Some(new_hash)));
+
+                dir.sync_config(&self.dotconfigs_path)?;
             } else {
                 println!("Skipping {:?} already up-to date.", dir.name);
-                new_dotconfig.configs.push(dir.clone());
+                new_dotconfig
+                    .configs
+                    .push(Config::new(&dir.name, &dir.path, dir.hash.clone()));
             }
         }
 
         Ok(new_dotconfig)
     }
-}
 
-impl Config {
-    fn new(name: String, path: String, hash: Option<String>) -> Self {
-        Self { name, path, hash }
+    /// Force update all the configs mentioned in the config file
+    pub fn force_sync_configs(&self) -> Result<()> {
+        for dir in &self.configs {
+            dir.sync_config(&self.dotconfigs_path)?;
+        }
+
+        Ok(())
     }
 }

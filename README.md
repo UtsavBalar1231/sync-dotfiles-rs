@@ -13,23 +13,25 @@ The default configuration inside config.ron is a structure DotConfig containing 
 Force Update initially to get the folders synced once.
 This will force create and copy all the files from your config folders in your environment (excluding .git files)
 ```bash
-./sync-dotfiles -f
+./sync-dotfiles (-f | --force)
 ```
-Or
+---
 
+Remove hashes from the config file for a case when your configuration gets invalid somehow
 ```bash
-./sync-dotfiles --force
+./sync-dotfiles (-C | --clean-hash)
 ```
-___
+---
 
 To Update your configs once they were synced for the first time
 ```bash
-./sync-dotfiles -u
+./sync-dotfiles (-u | --update)
 ```
-Or
+---
 
+To Get a dummy config file
 ```bash
-./sync-dotfiles --update
+./sync-dotfiles (-n | --new)
 ```
 ---
 

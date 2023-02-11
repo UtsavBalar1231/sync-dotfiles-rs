@@ -44,8 +44,10 @@ impl Config {
             return Err(anyhow::anyhow!("Failed to get metadata for {}", self.path));
         }
 
-        if &self.metadata_digest()? == self.hash.as_ref().unwrap() {
-            return Err(anyhow::anyhow!("No update required"));
+        if let Some(hash) = self.hash.as_ref() {
+            if &self.metadata_digest().context("Metadeta digest failed!")? == hash {
+                return Err(anyhow::anyhow!("No update required"));
+            }
         }
 
         Ok(())
@@ -55,6 +57,12 @@ impl Config {
     pub fn sync_config(&self, path: &String) -> Result<()> {
         let dotconfigs_path = path.fix_path()?;
         let config_path = dotconfigs_path.join(self.path.fix_path()?);
+
+        println!(
+            "Copying {config_path:?} to {}{}",
+            dotconfigs_path.display(),
+            self.name,
+        );
 
         // If dotconfigs_path doesn't exist, create it
         if !dotconfigs_path.exists() {
@@ -67,7 +75,7 @@ impl Config {
         }
 
         // copy config dir contents to dotconfigs_path dir
-        for entry in WalkDir::new(&self.path) {
+        for entry in WalkDir::new(&self.path.fix_path()?) {
             let entry = entry?;
             // ignore git directory
             if entry.path().to_str().unwrap().contains(".git") {
@@ -76,11 +84,10 @@ impl Config {
 
             let path = entry.path();
             let new_path = dotconfigs_path
-                .join(PathBuf::from(&self.name).join(path.strip_prefix(&self.path)?));
+                .join(PathBuf::from(&self.name).join(path.strip_prefix(&self.path.fix_path()?)?));
             if path.is_dir() {
                 std::fs::create_dir_all(new_path).context("Failed to create dir")?;
             } else {
-                println!("Copying {path:?} to {new_path:?}");
                 std::fs::copy(path, new_path).expect("Failed to copy file");
             }
         }

@@ -2,13 +2,26 @@ use crate::config::Config;
 use crate::*;
 use std::io::Write;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct DotConfig {
     pub dotconfigs_path: String,
     pub configs: Vec<Config>,
 }
 
 impl DotConfig {
+    pub fn parse_dotconfig() -> Result<Self> {
+        let mut file = File::open("config.ron")?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+
+        let config = Options::default()
+            .with_default_extension(Extensions::IMPLICIT_SOME)
+            .from_str(&contents)
+            .context("Failed to parse config file")?;
+
+        Ok(config)
+    }
+
     fn from(path: &String) -> Self {
         DotConfig {
             dotconfigs_path: path.to_string(),
@@ -63,5 +76,19 @@ impl DotConfig {
         }
 
         Ok(())
+    }
+
+    /// Remove hash from config file
+    pub fn clean_hash_from_configs(&self) -> Result<DotConfig> {
+        let mut new_dotconfig = DotConfig::from(&self.dotconfigs_path);
+
+        for dir in &self.configs {
+            new_dotconfig
+                .configs
+                .push(Config::new(&dir.name, &dir.path, None));
+        }
+
+        println!("Hashes removed from config file.");
+        Ok(new_dotconfig)
     }
 }

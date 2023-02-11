@@ -2,9 +2,9 @@
 (
     dotconfigs_path: "/home/utsav/dev/dotfiles/.config/",
     configs: [
-        (name: "nvim", path: "~/.config/nvim", hash: "5d9777414cf4a788a39219f0be223bab847af2f7f21643ebdc9a61f983eb0440"),
-        (name: "zsh", path: "~/.config/zsh", hash: "929bb18f76ce24bd8660ce7d9ff94706c73872f85a67d0db8304ef8dd581e1a5"),
-        (name: "polybar", path: "~/.config/polybar", hash: "69533a2abc5aeeeb5d8577f75960fd3e5dd787b702446d9a634bb3703d03b898"),
-        (name: "leftwm", path: "~/.config/leftwm", hash: "2aeef2f23d0c528499b5788f0eabc29ee3ce9101e706d72890efe02a22661084"),
+        (name: "nvim", path: "~/.config/nvim", hash: "5e70a84099c337b29299ee1830d77bcf05a9ec66"),
+        (name: "zsh", path: "~/.config/zsh", hash: "5a792a5025581f7bdf5bfc82f488ac2839524df0"),
+        (name: "polybar", path: "~/.config/polybar", hash: "e38f6185f6c3b35fd8b3ce675d700b505623a84c"),
+        (name: "leftwm", path: "~/.config/leftwm", hash: "5f6f352e60f58cc38980c8632259398e9093d8f3"),
     ],
 )

@@ -1,10 +1,5 @@
 #![enable(implicit_some)]
 (
-    dotconfigs_path: "/home/utsav/dev/dotfiles/.config/",
-    configs: [
-        (name: "nvim", path: "~/.config/nvim", hash: "5e70a84099c337b29299ee1830d77bcf05a9ec66"),
-        (name: "zsh", path: "~/.config/zsh", hash: "5a792a5025581f7bdf5bfc82f488ac2839524df0"),
-        (name: "polybar", path: "~/.config/polybar", hash: "e38f6185f6c3b35fd8b3ce675d700b505623a84c"),
-        (name: "leftwm", path: "~/.config/leftwm", hash: "5f6f352e60f58cc38980c8632259398e9093d8f3"),
-    ],
+    dotconfigs_path: "~/.config.ron",
+    configs: [],
 )

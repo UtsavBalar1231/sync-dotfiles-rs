@@ -1,18 +1,25 @@
 [package]
 name = "sync-dotfiles-rs"
-version = "0.1.2"
+version = "0.1.4"
 edition = "2021"
 authors = ["Utsav Balar <utsavbalar1231@gmail.com>"]
-description = "Sync dotfiles across machines"
+description = "Easily sync dotfiles from a source directory to a destination directory as per your configuration"
 
 
 [dependencies]
 anyhow = "1.0"
 ron = "0.8"
 home = "0.5"
-crypto-hash = "0.3"
 walkdir = "2"
 
 [dependencies.serde]
 version = "1"
 features = ["derive"]
+
+[dependencies.clap]
+version = "4"
+features = ["derive"]
+
+[dependencies.xxhash-rust]
+version = "0.8"
+features = ["xxh3"]

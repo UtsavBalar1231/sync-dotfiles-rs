@@ -3,37 +3,33 @@
 
 ### Features
 - Update your dotconfigs all at once based on the configuration.
-- Check inside each config folders and update only if config folder is modified.
-- Easy to configure it yourself by simply modifying `config.ron` file.
+- Check inside each config folder and update only if the config folder is modified.
+- Easy to configure it yourself by simply modifying the `config.ron` file.
 ---
 
-### Example
-The default configuration inside config.ron is a structure DotConfig containing a repo to store your configs and a structure Config which is a list of all the configs (it can be a directory or a single config file).
+### Usage
+The default configuration inside the config.ron is a structure DotConfig which contains dotconfigs_path and config variable.
+The dotconfigs_path is used to store the location of your configs and the config variable is a list that contains a list of all the configs (it can be a directory or a single config file).
 
-Force Update initially to get the folders synced once.
-This will force create and copy all the files from your config folders in your environment (excluding .git files)
 ```bash
-./sync-dotfiles (-f | --force)
-```
----
+Usage: sync-dotfiles-rs [OPTIONS] [COMMAND]
 
-Remove hashes from the config file for a case when your configuration gets invalid somehow
-```bash
-./sync-dotfiles (-C | --clean-hash)
-```
----
+Commands:
+  add       Adds a new config entry to your exisiting config file
+  cleanall  Clean all the config directories from the dotconfigs path specified in the config file
+  help      Print this message or the help of the given subcommand(s)
 
-To Update your configs once they were synced for the first time
-```bash
-./sync-dotfiles (-u | --update)
+Options:
+  -f, --force                Force sync even if there are no changes
+  -u, --update               Update the config file with new files
+  -x, --chash                Clean the hash of config entries in the config file
+  -n, --new                  Prints the new config file
+  -p, --print                Print the contents of the config file
+      --cpath <CONFIG_PATH>  The path of the config file (default: current_dir/config.ron)
+  -h, --help                 Print help
+  -V, --version              Print version
 ```
----
-
-To Get a dummy config file
-```bash
-./sync-dotfiles (-n | --new)
-```
----
+___
 
 ### Configs structure
 
@@ -57,14 +53,19 @@ Default configuration inside config.ron looks like a tuple of dotconfigs_path an
 ```bash
 #![enable(implicit_some)]
 (
-    dotconfigs_path: ""
-    configs: [],
+    dotconfigs_path: "/* Path to your dotconfigs folder or repository */",
+    configs: [
+        (
+            name: "/* Name of the config */",
+            path: "/* Path to the config */",
+        ),
+    ],
 )
 ```
 ---
 
-You can insert new config in configs list by simply modifying configs list
-The hash of the config initially can be None and you can update it later.
+You can insert a new config in the configs list by simply modifying the configs list manually or by using the command `sync-dotconfigs add -n <name> -p <path>`.
+The hash of the config can initially be set to None and you can update it later using 'sync-dotconfigs -u'.
 ```bash
 dotconfigs_path: "/home/<username>/my-dotfiles/configs/"
 configs: [

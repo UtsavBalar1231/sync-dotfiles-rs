@@ -8,25 +8,22 @@ pub use serde::{Deserialize, Serialize};
 pub use std::{fs::File, io::Read};
 pub use std::{path::PathBuf, str::FromStr};
 
+/// Crate to hold the config file data
 pub mod config;
+/// Crate to hold the dotconfig file data
 pub mod dotconfig;
 
-use crypto_hash::{hex_digest, Algorithm};
 use home::home_dir;
-
-/// Hashes the contents of a file and returns the hash as a string
-fn hash_file(bytes: &[u8]) -> String {
-    hex_digest(Algorithm::SHA1, bytes)
-}
 
 /// Fix the path to be absolute and not relative
 pub trait FixPath<T> {
     fn fix_path(&self) -> Result<PathBuf>;
 }
 
+/// Fix the path to be absolute and not relative for PathBuf type
 impl FixPath<PathBuf> for PathBuf {
     fn fix_path(&self) -> Result<PathBuf> {
-        if self.is_relative() {
+        if self.starts_with("~") {
             return Ok(self
                 .strip_prefix("~")
                 .map(|p| home_dir().expect("Failed to get home directory").join(p))?);
@@ -36,17 +33,19 @@ impl FixPath<PathBuf> for PathBuf {
     }
 }
 
+/// Fix the path to be absolute and not relative for String type
 impl FixPath<String> for String {
     fn fix_path(&self) -> Result<PathBuf> {
         if self.starts_with('~') {
-            self.replace(
-                '~',
-                home_dir()
-                    .expect("Failed to get home directory!")
-                    .to_str()
-                    .unwrap(),
-            )
-            .fix_path()
+            Ok(PathBuf::from(
+                self.replace(
+                    '~',
+                    home_dir()
+                        .expect("Failed to get home directory!")
+                        .to_str()
+                        .unwrap(),
+                ),
+            ))
         } else {
             Ok(PathBuf::from_str(self).expect("Failed to parse path"))
         }

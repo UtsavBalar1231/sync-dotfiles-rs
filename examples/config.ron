@@ -1,0 +1,16 @@
+#![enable(implicit_some)]
+(
+    dotconfigs_path: "~/dev/dotfiles/.config/",
+    configs: [
+        (name: "leftwm", path: "~/.config/leftwm/", hash: "847015294727677511"),
+        (name: "neovim", path: "~/.config/nvim/", hash: "16366877286561035522"),
+        (name: "picom", path: "~/.config/picom/", hash: "3244421341483603138"),
+        (name: "polybar", path: "~/.config/polybar/", hash: "18319219601232347358"),
+        (name: "rofi", path: "~/.config/rofi/", hash: "16001011354017120721"),
+        (name: "zsh", path: "~/.config/zsh/", hash: "4906785624641690992"),
+        (name: "xorg", path: "~/.config/xorg/", hash: "3244421341483603138"),
+        (name: "dunst", path: "~/.config/dunst/", hash: "3244421341483603138"),
+        (name: "kitty", path: "~/.config/kitty/", hash: "10204449385511033141"),
+        (name: "hypr", path: "~/.config/hypr/", hash: "6551656938691604917"),
+    ],
+)

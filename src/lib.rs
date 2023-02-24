@@ -1,11 +1,11 @@
-pub use anyhow::{Context, Result};
+pub use anyhow::{anyhow, Context, Result};
 pub use ron::{
     extensions::Extensions,
     ser::{to_string_pretty, PrettyConfig},
     Options,
 };
 pub use serde::{Deserialize, Serialize};
-pub use std::{fs::File, io::Read};
+pub use std::{fs, io::Read};
 pub use std::{path::PathBuf, str::FromStr};
 
 /// Crate to hold the config file data
@@ -17,37 +17,40 @@ use home::home_dir;
 
 /// Fix the path to be absolute and not relative
 pub trait FixPath<T> {
-    fn fix_path(&self) -> Result<PathBuf>;
+    fn fix_path(&self) -> Option<PathBuf>;
 }
 
 /// Fix the path to be absolute and not relative for PathBuf type
 impl FixPath<PathBuf> for PathBuf {
-    fn fix_path(&self) -> Result<PathBuf> {
+    fn fix_path(&self) -> Option<PathBuf> {
         if self.starts_with("~") {
-            return Ok(self
-                .strip_prefix("~")
-                .map(|p| home_dir().expect("Failed to get home directory").join(p))?);
+            Some(
+                self.strip_prefix("~")
+                    .map(|p| home_dir().expect("Failed to get home directory").join(p))
+                    .expect("Failed to strip prefix"),
+            )
         } else {
-            Ok(self.clone())
+            None
         }
     }
 }
 
 /// Fix the path to be absolute and not relative for String type
-impl FixPath<String> for String {
-    fn fix_path(&self) -> Result<PathBuf> {
+impl FixPath<&str> for &str {
+    fn fix_path(&self) -> Option<PathBuf> {
         if self.starts_with('~') {
-            Ok(PathBuf::from(
+            Some(
                 self.replace(
                     '~',
                     home_dir()
-                        .expect("Failed to get home directory!")
+                        .expect("Failed to get home directory")
                         .to_str()
                         .unwrap(),
-                ),
-            ))
+                )
+                .into(),
+            )
         } else {
-            Ok(PathBuf::from_str(self).expect("Failed to parse path"))
+            None
         }
     }
 }

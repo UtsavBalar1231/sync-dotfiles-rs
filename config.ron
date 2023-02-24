@@ -1,5 +1,0 @@
-#![enable(implicit_some)]
-(
-    dotconfigs_path: "~/.config.ron",
-    configs: [],
-)

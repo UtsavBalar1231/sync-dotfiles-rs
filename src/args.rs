@@ -5,9 +5,13 @@ use clap::{Parser, Subcommand};
 #[command(author = "Utsav Balar")]
 #[command(version, about, long_about)]
 pub struct Args {
-    /// Force sync even if there are no changes
-    #[clap(short, long)]
-    pub force: bool,
+    /// Force push the configs listed in config to the local configs directory
+    #[clap(short = 'F', long = "fpush")]
+    pub force_push: bool,
+
+    /// Force pull the local configs inside the mentioned dotconfigs directory
+    #[clap(short = 'f', long = "fpull")]
+    pub force_pull: bool,
 
     /// Update the config file with new files
     #[clap(short, long)]
@@ -30,7 +34,7 @@ pub struct Args {
     pub print: bool,
 
     /// The path of the config file (default: current_dir/config.ron)
-    #[clap(long = "cpath")]
+    #[clap(short, long = "cpath")]
     pub config_path: Option<String>,
 }
 
@@ -48,7 +52,7 @@ pub enum SubCommandArgs {
     },
 
     /// Clean all the config directories from the dotconfigs path specified in the config file
-    #[clap(name = "cleanall")]
+    #[clap(name = "clean")]
     CleanDirAll,
 }
 

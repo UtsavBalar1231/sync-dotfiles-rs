@@ -15,19 +15,21 @@ The dotconfigs_path is used to store the location of your configs and the config
 Usage: sync-dotfiles-rs [OPTIONS] [COMMAND]
 
 Commands:
-  add       Adds a new config entry to your exisiting config file
-  cleanall  Clean all the config directories from the dotconfigs path specified in the config file
-  help      Print this message or the help of the given subcommand(s)
+  add    Adds a new config entry to your exisiting config file
+  clean  Clean all the config directories from the dotconfigs path specified in the config file
+  help   Print this message or the help of the given subcommand(s)
 
 Options:
-  -f, --force                Force sync even if there are no changes
+  -F, --fpush                Force push the configs listed in config to the local configs directory
+  -f, --fpull                Force pull the local configs inside the mentioned dotconfigs directory
   -u, --update               Update the config file with new files
   -x, --chash                Clean the hash of config entries in the config file
   -n, --new                  Prints the new config file
   -p, --print                Print the contents of the config file
-      --cpath <CONFIG_PATH>  The path of the config file (default: current_dir/config.ron)
+  -c, --cpath <CONFIG_PATH>  The path of the config file (default: current_dir/config.ron)
   -h, --help                 Print help
   -V, --version              Print version
+
 ```
 ___
 

@@ -2,18 +2,50 @@ use crate::config::Config;
 use crate::*;
 use std::io::Write;
 
+/// Struct to store the contents of the config file (`config.ron`)
+///
+/// The contents of the config file is stored in a vector of Config structs.
+/// The path of the dotconfig directory is stored in a str slice.
+///
+/// This struct implements the Serialize and Deserialize traits from serde
+/// which are used to serialize and deserialize the struct to and from a string.
+///
 #[derive(Serialize, Deserialize)]
 pub struct DotConfig<'a> {
+    /// The path of the dotconfig directory will panic if the path is not a valid utf-8 string or empty
     pub dotconfigs_path: &'a str,
+    /// The vector of Config structs which holds the contents of the config file
     pub configs: Vec<Config<'a>>,
 }
 
+/// To store the contents of the config file for use in other functions.
+///
+/// The contents is stored in a static variable so that it can be used by parse_dotconfig function.
+/// And the contents can be used by other functions without having to deal with rust borrowing rules
+///
 static mut CONTENTS: String = String::new();
+
+/// To store the path of the config file for use in other functions.
+///
+/// The path can be changed by the user using the --config-path flag.
+/// Initially, the path is set to the path of the config file in the $HOME/.config/sync-dotfiles directory.
+/// If the config file is not found in the $HOME/.config/sync-dotfiles directory,
+/// the path is set to the path of the config file in the current directory.
+///
 static mut CONFIG_PATH: String = String::new();
 
 impl<'a> DotConfig<'a> {
     #[inline(always)]
-    /// Parses the dotconfig file and returns a DotConfig struct
+    /// Parses the dotconfig file and returns a DotConfig structure.
+    ///
+    /// The dotconfig file is the config file which contains the list of all the config files to be synced.
+    /// It is a RON file (`config.ron`) which is a human readable version of the RUST data serialization format.
+    ///
+    /// The config file location can be specified by the user using the --cpath or -c flag.
+    /// If the config file location is not specified by the user,
+    /// the config file is searched in the $HOME/.config/sync-dotfiles directory.
+    /// Else if the config file is not found in the $HOME/.config/sync-dotfiles directory,
+    /// the config file is searched in the current directory.
     pub fn parse_dotconfig(filepath: Option<&'a str>) -> Result<Self> {
         let mut file = Err(anyhow!(""));
         unsafe {
@@ -72,18 +104,27 @@ impl<'a> DotConfig<'a> {
     }
 
     /// Create a new DotConfig struct from the dotconfig directory
+    /// The dotconfig directory is the directory where all the config files are stored
+    ///
+    /// ```
+    /// # Example:
+    ///
+    /// let dotconfig = DotConfig::from("/home/user/.dotconfig");
+    /// ```
     #[inline(always)]
-    fn from<'b>(path: &'b str) -> Self
-    where
-        'b: 'a,
-    {
+    fn from(path: &'a str) -> Self {
         DotConfig {
             dotconfigs_path: path,
             configs: Vec::new(),
         }
     }
 
-    /// Save the config files to disk
+    /// Save the config files to local disk at the path either specified by the user or the default path.
+    ///
+    /// The default path is the path of the config file in the $HOME/.config/sync-dotfiles directory
+    /// If the config file is not found in the $HOME/.config/sync-dotfiles directory,
+    /// the default path is the path of the config file in the current directory.
+    ///
     #[inline(always)]
     pub fn save_configs(&self) -> Result<()> {
         let ron_pretty = PrettyConfig::new()
@@ -97,6 +138,7 @@ impl<'a> DotConfig<'a> {
 
             let mut file =
                 fs::File::create(&CONFIG_PATH).context("Failed to create config file")?;
+
             file.write_all(config.as_bytes())
                 .context("Failed to write to config file")?;
         }
@@ -104,7 +146,13 @@ impl<'a> DotConfig<'a> {
         Ok(())
     }
 
-    /// Update all the configs mentioned in the config file
+    /// Update all the configs mentioned in the config file.
+    ///
+    /// Start by iteratating through all the configs and check if the config needs to be updated.
+    /// If the config needs to be updated, update the config hash in the config file and
+    /// replace the config file with the latest version.
+    /// Else if the config does not need to be updated, skip the config
+    ///
     #[inline(always)]
     pub fn sync_configs(&self) -> Result<Self> {
         let mut new_dotconfig = DotConfig::from(self.dotconfigs_path);
@@ -112,6 +160,7 @@ impl<'a> DotConfig<'a> {
         self.configs.iter().for_each(|dir| {
             if dir.check_update_metadata_required().is_ok() {
                 println!("Updating {}.", dir.name);
+
                 let new_hash = dir
                     .metadata_digest()
                     .expect("Failed to get metadata digest");
@@ -124,16 +173,18 @@ impl<'a> DotConfig<'a> {
                     .expect("Failed to pull config");
             } else {
                 println!("Skipping {:?} already up-to date.", dir.name);
+
                 new_dotconfig
                     .configs
-                    .push(Config::new(dir.name, dir.path, dir.hash.clone()));
+                    .push(Config::new(dir.name, dir.path, dir.hash));
             }
         });
 
         Ok(new_dotconfig)
     }
 
-    /// Force pull all the configs mentioned in the config file from the dotconfig directory
+    /// Force pull all the configs mentioned in the config file from the path specified by the user
+    /// Into the dotconfig (`config.ron`) file
     #[inline(always)]
     pub fn force_pull_configs(&self) -> Result<()> {
         self.configs.iter().for_each(|dir| {
@@ -146,7 +197,27 @@ impl<'a> DotConfig<'a> {
     }
 
     /// Force push all the configs mentioned in the config file from the dotconfig directory,
-    /// To the dotconfig directory
+    /// To the user specified path for each config
+    ///
+    /// ```
+    ///
+    /// # Example:
+    /// # cat config.ron
+    ///
+    /// #(implicit_some)
+    /// (
+    ///     dotconfigs_path: "/home/user/.dotconfig",
+    ///     configs: [
+    ///         (
+    ///             name: "nvim",
+    ///             path: "/home/user/.config/nvim",
+    ///         )
+    ///     ]
+    /// )
+    /// ```
+    /// During the force push, the config file will be pushed to the path specified by the user
+    /// i.e. /home/user/.config/nvim
+    ///
     #[inline(always)]
     pub fn force_push_configs(&self) -> Result<()> {
         self.configs.iter().for_each(|dir| {
@@ -158,7 +229,11 @@ impl<'a> DotConfig<'a> {
         Ok(())
     }
 
-    /// Remove hash from config file
+    /// Remove hashes from the config file and return a new dotconfig.
+    ///
+    /// This is useful when the user wants to update the config file with the latest version of the config files
+    /// without updating the hashes.
+    ///
     #[inline(always)]
     pub fn clean_hash_from_configs(&self) -> Result<DotConfig> {
         let mut new_dotconfig = DotConfig::from(self.dotconfigs_path);
@@ -173,18 +248,65 @@ impl<'a> DotConfig<'a> {
         Ok(new_dotconfig)
     }
 
-    /// Add a new config inside the dot config file
+    /// Clean all the configs from dotconfig directory except the .git folder.
+    ///
+    /// This is useful when the user wants to remove all the configs from the dotconfig directory for maintenance
+    /// or to remove all the configs from the dotconfig directory and add new configs.
+    ///
     #[inline(always)]
-    pub fn add_config(&self, name: &'a str, path: &'a str) -> Result<Self> {
+    pub fn clean_dotconfigs_dir(&self) -> Result<()> {
+        let path = self
+            .dotconfigs_path
+            .fix_path()
+            .ok_or_else(|| PathBuf::from(self.dotconfigs_path))
+            .expect("Failed to fix path");
+
+        println!("Cleaning all the configs inside {path:?}");
+
+        // iterate over all the files and directories inside the dotconfigs folder
+        walkdir::WalkDir::new(&path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .for_each(|e| {
+                // skip the path itself and the .git folder
+                if e.path() == path || e.path().to_string_lossy().contains(".git") {
+                    return;
+                }
+
+                // remove the file or directory depending on the type
+                if e.file_type().is_dir() {
+                    std::fs::remove_dir_all(e.path()).expect("Failed to remove directory");
+                } else {
+                    std::fs::remove_file(e.path()).expect("Failed to remove file");
+                }
+            });
+
+        Ok(())
+    }
+
+    /// Adds a new config inside the config file and returns a new dotconfig.
+    ///
+    /// This is useful when the user wants to add a new config to the config file.
+    /// Additionally checks if the config with the same name already exists.
+    ///
+    #[inline(always)]
+    pub fn add_config(&self, name: &'a str, path: &'a std::path::Path) -> Result<Self> {
         let mut new_dotconfig = DotConfig::from(self.dotconfigs_path);
+
+        self.configs.iter().any(|dir| dir.name == name).then(|| {
+            println!("Config with name {name} already exists.");
+            std::process::exit(1);
+        });
 
         self.configs.iter().for_each(|dir| {
             new_dotconfig
                 .configs
-                .push(Config::new(dir.name, dir.path, dir.hash.clone()));
+                .push(Config::new(dir.name, dir.path, dir.hash));
         });
 
-        new_dotconfig.configs.push(Config::new(name, path, None));
+        new_dotconfig
+            .configs
+            .push(Config::new(name, path.to_str().unwrap(), None));
 
         Ok(new_dotconfig)
     }

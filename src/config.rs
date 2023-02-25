@@ -2,6 +2,18 @@ use crate::*;
 use walkdir::WalkDir;
 use xxhash_rust::xxh3::Xxh3;
 
+/// Config struct for storing config metadata and syncing configs
+///
+/// # Example
+/// ```
+/// use dotconfigs::config::Config;
+///
+/// let config = Config::new("/* Name of the config */", "/* Path to the config */", None);
+/// ```
+/// Provides methods to sync configs from the dotconfig directory to the home directory
+/// and vice versa. Also provides methods to check if the config has changed since the last
+/// time it was synced.
+
 #[derive(Serialize, Deserialize)]
 pub struct Config<'a> {
     pub name: &'a str,
@@ -29,10 +41,10 @@ impl<'a> Config<'a> {
     /// Hashes the metadata of a file/dir and returns the hash as a string
     #[inline(always)]
     pub fn metadata_digest(&self) -> Result<u64> {
-        let path = PathBuf::from_str(self.path)?
+        let path = self
+            .path
             .fix_path()
-            .ok_or_else(|| PathBuf::from_str(self.path).unwrap())
-            .expect("Failed to fix path");
+            .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
 
         let mut hasher = Xxh3::new();
 
@@ -74,14 +86,12 @@ impl<'a> Config<'a> {
     pub fn pull_config(&self, path: &str) -> Result<()> {
         let dotconfigs_path = path
             .fix_path()
-            .ok_or_else(|| PathBuf::from_str(path).unwrap())
-            .expect("Failed to fix path");
+            .unwrap_or_else(|| PathBuf::from_str(path).unwrap());
 
         let selfpath = self
             .path
             .fix_path()
-            .ok_or_else(|| PathBuf::from_str(self.path).unwrap())
-            .expect("Failed to fix path");
+            .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
 
         let config_path = dotconfigs_path.join(&selfpath);
 
@@ -111,8 +121,7 @@ impl<'a> Config<'a> {
                         path.strip_prefix(
                             self.path
                                 .fix_path()
-                                .ok_or_else(|| PathBuf::from_str(self.path).unwrap())
-                                .expect("Failed to fix path"),
+                                .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap()),
                         )
                         .unwrap(),
                     ),
@@ -133,14 +142,12 @@ impl<'a> Config<'a> {
     pub fn push_config(&self, path: &str) -> Result<()> {
         let dotconfigs_path = path
             .fix_path()
-            .ok_or_else(|| PathBuf::from_str(path).unwrap())
-            .expect("Failed to fix path");
+            .unwrap_or_else(|| PathBuf::from_str(path).unwrap());
 
         let config_path = self
             .path
             .fix_path()
-            .ok_or_else(|| PathBuf::from_str(self.path).unwrap())
-            .expect("Failed to fix path");
+            .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
 
         // If dotconfigs_path doesn't exist, then
         if !dotconfigs_path.exists() {

@@ -2,14 +2,14 @@
 ---
 
 ### Features
-- Update your dotconfigs all at once based on the configuration.
-- Check inside each config folder and update only if the config folder is modified.
-- Easy to configure it yourself by simply modifying the `config.ron` file.
+- Update your dotconfigs all at once based on the configuration file.
+- Check inside each config folder and update only if the config folder was actually modified.
+- Easy to configure by yourself, simply modify the `config.ron` file as per your choice.
 ---
 
 ### Usage
-The default configuration inside the config.ron is a structure DotConfig which contains dotconfigs_path and config variable.
-The dotconfigs_path is used to store the location of your configs and the config variable is a list that contains a list of all the configs (it can be a directory or a single config file).
+The default configuration inside the config.ron is a structure DotConfig which contains dotconfigs_path and a Vector of Config structure.
+The dotconfigs_path is used to store the location of your configs and the Config structure is a list that contains a list of all the configs (it can be a directory or a single config file).
 
 ```bash
 Usage: sync-dotfiles-rs [OPTIONS] [COMMAND]
@@ -23,7 +23,7 @@ Options:
   -F, --fpush                Force push the configs listed in config to the local configs directory
   -f, --fpull                Force pull the local configs inside the mentioned dotconfigs directory
   -u, --update               Update the config file with new files
-  -x, --chash                Clean the hash of config entries in the config file
+  -x, --clear                Clear the metadata of config entries in the config file
   -n, --new                  Prints the new config file
   -p, --print                Print the contents of the config file
   -c, --cpath <CONFIG_PATH>  The path of the config file (default: current_dir/config.ron)
@@ -46,7 +46,8 @@ DotConfig {
 Config {
     name: String,
     path: String,
-    hash: Option<String>
+    hash: Option<String>,
+    conf_type: Option<ConfType> // Dir or File
 }
 ```
 ---

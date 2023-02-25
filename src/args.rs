@@ -17,9 +17,9 @@ pub struct Args {
     #[clap(short, long)]
     pub update: bool,
 
-    /// Clean the hash of config entries in the config file
-    #[clap(short = 'x', long = "chash")]
-    pub clean_hash: bool,
+    /// Clear the metadata of config entries in the config file
+    #[clap(short = 'x', long = "clear")]
+    pub clear_metadata: bool,
 
     /// Prints the new config file
     #[clap(short, long)]

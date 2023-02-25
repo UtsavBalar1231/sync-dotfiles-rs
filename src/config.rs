@@ -1,13 +1,33 @@
 use crate::*;
+use hash::MerkleTree;
 use walkdir::WalkDir;
-use xxhash_rust::xxh3::Xxh3;
+
+/// Config struct for storing config metadata and syncing configs
+///
+/// # Example
+/// ```
+/// use dotconfigs::config::Config;
+///
+/// let config = Config::new("/* Name of the config */", "/* Path to the config */", None);
+/// ```
+/// Provides methods to sync configs from the dotconfig directory to the home directory
+/// and vice versa. Also provides methods to check if the config has changed since the last
+/// time it was synced.
 
 #[derive(Serialize, Deserialize)]
 pub struct Config<'a> {
     pub name: &'a str,
     pub path: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub hash: Option<u64>,
+    pub hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conf_type: Option<ConfType>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+pub enum ConfType {
+    File,
+    Dir,
 }
 
 impl Default for Config<'_> {
@@ -16,55 +36,143 @@ impl Default for Config<'_> {
             name: "/* Name of the config */",
             path: "/* Path to the config */",
             hash: None,
+            conf_type: None,
         }
     }
 }
 
 impl<'a> Config<'a> {
     #[inline(always)]
-    pub fn new(name: &'a str, path: &'a str, hash: Option<u64>) -> Self {
-        Self { name, path, hash }
+    pub fn new(
+        name: &'a str,
+        path: &'a str,
+        hash: Option<String>,
+        conf_type: Option<ConfType>,
+    ) -> Self {
+        Self {
+            name,
+            path,
+            hash,
+            conf_type,
+        }
     }
 
     /// Hashes the metadata of a file/dir and returns the hash as a string
     #[inline(always)]
-    pub fn metadata_digest(&self) -> Result<u64> {
-        let path = PathBuf::from_str(self.path)?
+    pub fn metadata_digest(&self) -> Result<String> {
+        let path = self
+            .path
             .fix_path()
-            .ok_or_else(|| PathBuf::from_str(self.path).unwrap())
-            .expect("Failed to fix path");
+            .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
 
-        let mut hasher = Xxh3::new();
+        let hasher = MerkleTree::builder(path.to_string_lossy())
+            .hash_names(true)
+            .build()
+            .expect("Failed to build MerkleTree");
 
-        if path.is_dir() {
-            WalkDir::new(path).into_iter().for_each(|entry| {
-                let entry = entry.expect("Failed to read entry");
-                let child_path = entry.path();
-                if child_path.is_file() {
-                    let mut file = fs::File::open(child_path).expect("Failed to open file");
-                    let mut contents = Vec::new();
-                    file.read_to_end(&mut contents)
-                        .expect("Failed to read file");
-                    hasher.update(&contents);
-                }
-            });
-        }
+        // print hash as hex
+        let hash = hasher
+            .main_node
+            .item
+            .hash
+            .iter()
+            .map(|b| format!("{b:x}"))
+            .collect::<String>();
 
-        Ok(hasher.digest())
+        Ok(hash)
     }
 
     /// Check if the path has changed since the last time it was hashed
+    /// This is required because the hash is not stored in the dotconfig file,
+    /// Also required because the config type is not stored in the dotconfig file
+    /// and is only used to determine if the config is a file or a directory during syncing
     #[inline(always)]
     pub fn check_update_metadata_required(&self) -> Result<()> {
-        if self.metadata_digest().is_err() {
+        let digest = self.metadata_digest();
+        if digest.is_err() {
             return Err(anyhow::anyhow!("Failed to get metadata for {}", self.path));
         }
 
-        if let Some(hash) = self.hash.as_ref() {
-            if &self.metadata_digest().context("Metadeta digest failed!")? == hash {
-                return Err(anyhow::anyhow!("No update required"));
+        match self.hash.as_ref() {
+            Some(hash) => {
+                if &digest.unwrap() == hash {
+                    return Err(anyhow::anyhow!("No update required"));
+                }
             }
+            None => return Ok(()),
         }
+
+        match self.conf_type.as_ref() {
+            Some(conf_type) => match conf_type {
+                ConfType::File => {
+                    let path = self
+                        .path
+                        .fix_path()
+                        .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
+
+                    if path.is_file() {
+                        return Err(anyhow::anyhow!("No update required"));
+                    }
+
+                    Ok(())
+                }
+                ConfType::Dir => {
+                    let path = self
+                        .path
+                        .fix_path()
+                        .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
+
+                    if path.is_dir() {
+                        return Err(anyhow::anyhow!("No update required"));
+                    }
+
+                    Ok(())
+                }
+            },
+            None => Ok(()),
+        }
+    }
+
+    /// Update hash of the config to the current hash
+    /// This is required because the hash is not stored in the dotconfig file
+    /// and is only used to determine if the config has changed since the last time it was synced
+    #[inline(always)]
+    pub fn update_config_hash(&mut self) -> Result<()> {
+        // calculate the new hash of the config
+        let new_hash = self
+            .metadata_digest()
+            .expect("Failed to get metadata digest");
+
+        self.hash = Some(new_hash);
+        Ok(())
+    }
+
+    /// Update the config type of the config
+    /// This is required because the config type is not stored in the dotconfig file
+    /// and is only used to determine if the config is a file or a directory
+    #[inline(always)]
+    pub fn update_config_type(&mut self) -> Result<()> {
+        let path = self
+            .path
+            .fix_path()
+            .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
+
+        if path.is_file() {
+            self.conf_type = Some(ConfType::File);
+        } else if path.is_dir() {
+            self.conf_type = Some(ConfType::Dir);
+        } else {
+            return Err(anyhow::anyhow!("Invalid config type"));
+        }
+
+        Ok(())
+    }
+
+    /// Update metadata of the config
+    #[inline(always)]
+    pub fn update_metadata(&mut self) -> Result<()> {
+        self.update_config_hash()?;
+        self.update_config_type()?;
 
         Ok(())
     }
@@ -74,20 +182,24 @@ impl<'a> Config<'a> {
     pub fn pull_config(&self, path: &str) -> Result<()> {
         let dotconfigs_path = path
             .fix_path()
-            .ok_or_else(|| PathBuf::from_str(path).unwrap())
-            .expect("Failed to fix path");
+            .unwrap_or_else(|| PathBuf::from_str(path).unwrap());
 
         let selfpath = self
             .path
             .fix_path()
-            .ok_or_else(|| PathBuf::from_str(self.path).unwrap())
-            .expect("Failed to fix path");
+            .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
 
         let config_path = dotconfigs_path.join(&selfpath);
 
         // If dotconfigs_path doesn't exist, create it
         if !dotconfigs_path.exists() {
             std::fs::create_dir_all(&dotconfigs_path)?;
+        }
+
+        // if the config path is just a file then directly copy it
+        if config_path.is_file() {
+            std::fs::copy(&config_path, dotconfigs_path.join(self.name))?;
+            return Ok(());
         }
 
         // If the config path doesn't exist, create it
@@ -111,8 +223,7 @@ impl<'a> Config<'a> {
                         path.strip_prefix(
                             self.path
                                 .fix_path()
-                                .ok_or_else(|| PathBuf::from_str(self.path).unwrap())
-                                .expect("Failed to fix path"),
+                                .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap()),
                         )
                         .unwrap(),
                     ),
@@ -133,55 +244,58 @@ impl<'a> Config<'a> {
     pub fn push_config(&self, path: &str) -> Result<()> {
         let dotconfigs_path = path
             .fix_path()
-            .ok_or_else(|| PathBuf::from_str(path).unwrap())
-            .expect("Failed to fix path");
+            .unwrap_or_else(|| PathBuf::from_str(path).unwrap());
 
         let config_path = self
             .path
             .fix_path()
-            .ok_or_else(|| PathBuf::from_str(self.path).unwrap())
-            .expect("Failed to fix path");
+            .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
 
         // If dotconfigs_path doesn't exist, then
         if !dotconfigs_path.exists() {
-            panic!("Dotconfigs path doesn't exist!");
+            return Err(anyhow::anyhow!(
+                "Dotconfigs path doesn't exist! Please clone the dotconfigs repo first!"
+            ));
         }
 
-        // If the config path doesn't exist, create it
-        if !config_path.exists() {
-            std::fs::create_dir_all(&config_path)?;
-        }
-
-        // copy config from dotconfigs_path dir to config_path dir
-        WalkDir::new(&config_path)
-            .into_iter()
-            .filter_map(|entry| entry.ok())
-            .for_each(|entry| {
-                // ignore git directory
-                if entry.path().to_str().unwrap().contains(".git") {
-                    return;
+        // If the config_path is a file, then just copy it
+        // TODO: Implement Eq for ConfType
+        if let Some(conf_type) = self.conf_type {
+            match conf_type {
+                ConfType::File => {
+                    std::fs::copy(dotconfigs_path.join(self.name), &config_path)?;
+                    return Ok(());
                 }
 
-                let path = &dotconfigs_path.join(
-                    // Convert: /home/user/dotconfigs-repo/someconfig/config to /home/user/.config/someconfig/config
-                    PathBuf::from(
-                        &config_path
-                            .strip_prefix(home_dir().unwrap().join(".config"))
-                            .unwrap(),
-                    )
-                    .join(
-                        entry
-                            .path()
-                            .strip_prefix(&config_path)
-                            .expect("Failed to strip prefix"),
-                    ),
-                );
+                ConfType::Dir => {
+                    // If the config path doesn't exist, create it
+                    if !config_path.exists() {
+                        println!("Creating dir: {}", config_path.to_str().unwrap());
+                        std::fs::create_dir_all(&config_path)?;
+                    }
 
-                println!("Copying {:?} to {}", path, entry.path().display());
+                    // copy config from dotconfigs_path dir to config_path dir
+                    WalkDir::new(&config_path)
+                        .into_iter()
+                        .filter_map(|entry| entry.ok())
+                        .for_each(|entry| {
+                            // ignore git directory
+                            if entry.path().to_str().unwrap().contains(".git") {
+                                return;
+                            }
 
-                // TODO: add check if we actually need to copy the file (check the hash of the current file and the hash of the file in the dotconfigs repo)
-                copy_dir(path, &entry.path().to_path_buf()).expect("Failed to copy config back");
-            });
+                            // Convert: /home/user/dotconfigs-repo/config/* to config_path/*
+                            let path = &dotconfigs_path.join(PathBuf::from(
+                                config_path.iter().last().unwrap().to_str().unwrap(),
+                            ));
+
+                            // TODO: add check if we actually need to copy the file (check the hash of the current file and the hash of the file in the dotconfigs repo)
+                            copy_dir(path, &entry.path().to_path_buf())
+                                .expect("Failed to copy config back");
+                        });
+                }
+            }
+        }
 
         Ok(())
     }
@@ -192,7 +306,18 @@ impl std::fmt::Display for Config<'_> {
         write!(f, "{{ ")?;
         write!(f, "name: {}, ", self.name)?;
         write!(f, "path: {}, ", self.path)?;
-        write!(f, "hash: {} ", self.hash.as_ref().unwrap_or(&0))?;
+
+        // if let Some(hash) = &self.hash {
+        //     write!(f, "hash: {hash:?} ")?;
+        // } else {
+        //     write!(f, "hash: None ")?;
+        // }
+
+        if let Some(conf_type) = &self.conf_type {
+            write!(f, "conf_type: {conf_type:?} ")?;
+        } else {
+            write!(f, "conf_type: None ")?;
+        }
         write!(f, "}}")
     }
 }

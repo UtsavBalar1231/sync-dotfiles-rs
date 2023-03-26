@@ -1,5 +1,6 @@
 use crate::*;
 use crate::{config::ConfType, config::Config};
+use rayon::prelude::*;
 use std::io::Write;
 
 /// Struct to store the contents of the config file (`config.ron`)
@@ -164,7 +165,7 @@ impl<'a> DotConfig<'a> {
     /// Into the dotconfig (`config.ron`) file
     #[inline(always)]
     pub fn force_pull_configs(&self) -> Result<()> {
-        self.configs.iter().for_each(|dir| {
+        self.configs.par_iter().for_each(|dir| {
             println!("Force pulling {}.", dir.name);
             dir.pull_config(self.dotconfigs_path)
                 .expect("Failed to force pull the config");
@@ -197,7 +198,7 @@ impl<'a> DotConfig<'a> {
     ///
     #[inline(always)]
     pub fn force_push_configs(&self) -> Result<()> {
-        self.configs.iter().for_each(|dir| {
+        self.configs.par_iter().for_each(|dir| {
             println!("Force pushing {}.", dir.name);
             dir.push_config(self.dotconfigs_path)
                 .expect("Failed to force push the config");
@@ -265,10 +266,13 @@ impl<'a> DotConfig<'a> {
     ///
     #[inline(always)]
     pub fn add_config(&mut self, name: &'a str, path: &'a std::path::Path) -> Result<()> {
-        self.configs.iter().any(|dir| dir.name == name).then(|| {
-            println!("Config with name {name} already exists.");
-            std::process::exit(1);
-        });
+        self.configs
+            .par_iter()
+            .any(|dir| dir.name == name)
+            .then(|| {
+                println!("Config with name {name} already exists.");
+                std::process::exit(1);
+            });
 
         let mut conf_type = None;
         if path.is_dir() {

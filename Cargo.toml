@@ -20,8 +20,10 @@ features = ["derive"]
 version = "4"
 features = ["derive"]
 
-[dependencies.blake3]
-version = "1.3"
+[dependencies.merkle_hash]
+version = "3.5"
+default-features = false
+features = ["parallel"]
 
 [dependencies.rayon]
 version = "1.7"

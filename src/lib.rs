@@ -13,8 +13,6 @@ pub mod config;
 /// Provides support to store the list of the config files with their path in the config file.
 pub mod dotconfig;
 
-pub mod hash;
-
 use home::home_dir;
 
 /// Fix the path to make sure it is absolute and not relative

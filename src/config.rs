@@ -1,5 +1,6 @@
 use crate::*;
-use hash::MerkleTree;
+use merkle_hash::MerkleTree;
+use rayon::prelude::*;
 use walkdir::WalkDir;
 
 /// Config struct for storing config metadata and syncing configs
@@ -8,7 +9,7 @@ use walkdir::WalkDir;
 /// ```
 /// use dotconfigs::config::Config;
 ///
-/// let config = Config::new("/* Name of the config */", "/* Path to the config */", None);
+/// let config = Config::new("<Name of the config>", "<Path to the config>", None);
 /// ```
 /// Provides methods to sync configs from the dotconfig directory to the home directory
 /// and vice versa. Also provides methods to check if the config has changed since the last
@@ -57,7 +58,7 @@ impl<'a> Config<'a> {
         }
     }
 
-    /// Hashes the metadata of a file/dir and returns the hash as a string
+    /// Hashes the metadata of a file / directory and returns the hash as a string
     #[inline(always)]
     pub fn metadata_digest(&self) -> Result<String> {
         let path = self
@@ -72,10 +73,10 @@ impl<'a> Config<'a> {
 
         // print hash as hex
         let hash = hasher
-            .main_node
+            .root
             .item
             .hash
-            .iter()
+            .par_iter()
             .map(|b| format!("{b:x}"))
             .collect::<String>();
 
@@ -196,7 +197,7 @@ impl<'a> Config<'a> {
             std::fs::create_dir_all(&dotconfigs_path)?;
         }
 
-        // if the config path is just a file then directly copy it
+        // if the config path is just a file, then directly copy it
         if config_path.is_file() {
             std::fs::copy(&config_path, dotconfigs_path.join(self.name))?;
             return Ok(());
@@ -207,7 +208,7 @@ impl<'a> Config<'a> {
             std::fs::create_dir_all(&config_path)?;
         }
 
-        // copy config dir contents to dotconfigs_path dir
+        // copy config directory contents to dotconfigs_path directory
         WalkDir::new(selfpath)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -274,7 +275,7 @@ impl<'a> Config<'a> {
                         std::fs::create_dir_all(&config_path)?;
                     }
 
-                    // copy config from dotconfigs_path dir to config_path dir
+                    // copy config from dotconfigs_path directory to config_path directory
                     WalkDir::new(&config_path)
                         .into_iter()
                         .filter_map(|entry| entry.ok())
@@ -285,9 +286,7 @@ impl<'a> Config<'a> {
                             }
 
                             // Convert: /home/user/dotconfigs-repo/config/* to config_path/*
-                            let path = &dotconfigs_path.join(PathBuf::from(
-                                config_path.iter().last().unwrap().to_str().unwrap(),
-                            ));
+                            let path = &dotconfigs_path.join(config_path.iter().last().unwrap());
 
                             // TODO: add check if we actually need to copy the file (check the hash of the current file and the hash of the file in the dotconfigs repo)
                             copy_dir(path, &entry.path().to_path_buf())
@@ -306,12 +305,6 @@ impl std::fmt::Display for Config<'_> {
         write!(f, "{{ ")?;
         write!(f, "name: {}, ", self.name)?;
         write!(f, "path: {}, ", self.path)?;
-
-        // if let Some(hash) = &self.hash {
-        //     write!(f, "hash: {hash:?} ")?;
-        // } else {
-        //     write!(f, "hash: None ")?;
-        // }
 
         if let Some(conf_type) = &self.conf_type {
             write!(f, "conf_type: {conf_type:?} ")?;

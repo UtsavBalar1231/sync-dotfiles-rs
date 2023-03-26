@@ -62,6 +62,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "camino"
+version = "1.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c530edf18f37068ac2d977409ed5cd50d53d73bc653c7647b48eb78976ac9ae2"
+
+[[package]]
 name = "cc"
 version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -291,6 +297,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "merkle_hash"
+version = "3.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2019c22dd07fa00549b671a150d126929eb1af56a4f4808a2e62aca8676995d"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "camino",
+ "rayon",
+]
+
+[[package]]
 name = "num_cpus"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -461,12 +479,12 @@ dependencies = [
 
 [[package]]
 name = "sync-dotfiles-rs"
-version = "0.1.6-rc"
+version = "0.1.6"
 dependencies = [
  "anyhow",
- "blake3",
  "clap",
  "home",
+ "merkle_hash",
  "rayon",
  "ron",
  "serde",

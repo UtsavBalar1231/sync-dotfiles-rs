@@ -176,7 +176,7 @@ impl<'a> Config<'a> {
             .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
 
         if !path.exists() {
-            println!("Config does not exist: {}", self.path);
+            println!("Config does not exist: {:#?}", self.path);
             return Ok(());
         }
 
@@ -185,7 +185,7 @@ impl<'a> Config<'a> {
         } else if path.is_dir() {
             self.conf_type = Some(ConfType::Dir);
         } else {
-            println!("Invalid config type: {}", self.path);
+            println!("Invalid config type: {:#?}", self.path);
             return Err(anyhow::anyhow!("Invalid config type"));
         }
 
@@ -218,7 +218,7 @@ impl<'a> Config<'a> {
         // If dotconfigs_path doesn't exist, create it
         if !dotconfigs_path.exists() {
             println!(
-                "Creating dotconfigs directory: {:?}",
+                "Creating dotconfigs directory: {:#?}",
                 dotconfigs_path.to_str()
             );
             std::fs::create_dir_all(&dotconfigs_path)?;
@@ -232,7 +232,7 @@ impl<'a> Config<'a> {
 
         // If the config path doesn't exist, skip it
         if !config_path.exists() {
-            println!("Path does not exists! skipping: {}", self.name);
+            println!("Path does not exists! skipping: {:#?}", self.name);
             return Ok(());
         }
 
@@ -263,7 +263,7 @@ impl<'a> Config<'a> {
                         match e.kind() {
                             std::io::ErrorKind::AlreadyExists => {}
                             _ => {
-                                println!("Failed to create directory: {:?}", new_path);
+                                println!("Failed to create directory: {:#?}", new_path);
                             }
                         }
                     }
@@ -306,7 +306,7 @@ impl<'a> Config<'a> {
                 ConfType::Dir => {
                     // If the config path doesn't exist, create it
                     if !config_path.exists() {
-                        println!("Creating dir: {}", config_path.to_str().unwrap());
+                        println!("Directory not found! creating: {:#?}", config_path.to_str().unwrap());
                         std::fs::create_dir_all(&config_path)?;
                     }
 
@@ -371,13 +371,13 @@ where
                 if let Err(e) = fs::copy(entry.path(), to.as_ref().join(entry.file_name())) {
                     match e.kind() {
                         std::io::ErrorKind::AlreadyExists => {
-                            println!("File already exists, skipping: {}", entry.path().display())
+                            println!("File already exists, skipping: {:#?}", entry.path().display())
                         }
                         _ => panic!("Error copying file: {e}"),
                     }
                 }
             } else {
-                println!("Skipping symlinks file: {}", entry.path().display());
+                println!("Skipping symlinks file: {:#?}", entry.path().display());
             }
         });
     Ok(())

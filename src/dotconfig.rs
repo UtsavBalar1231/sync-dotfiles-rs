@@ -119,7 +119,7 @@ impl<'a> DotConfig<'a> {
         let config = to_string_pretty(self, ron_pretty).context("Failed to serialize config")?;
 
         unsafe {
-            println!("Saving config file to {CONFIG_PATH}");
+            println!("Saving config file to {CONFIG_PATH:#?}");
 
             let mut file =
                 fs::File::create(&CONFIG_PATH).context("Failed to create config file")?;
@@ -145,13 +145,13 @@ impl<'a> DotConfig<'a> {
             // check if the config dir exists
             if !dir.path_exists() {
                 // if the config dir does not exist, exit safely
-                println!("Skipping {:?} does not exist.", dir.name);
+                println!("Skipping {:#?} does not exist.", dir.name);
                 return;
             }
 
             // check if the config needs to be updated
             if dir.check_update_metadata_required().is_ok() {
-                println!("Updating {}.", dir.name);
+                println!("Updating {:#?}.", dir.name);
 
                 // update the metadata in the config file
                 dir.update_metadata().expect("Failed to update config hash");
@@ -161,7 +161,7 @@ impl<'a> DotConfig<'a> {
                     .expect("Failed to pull config");
             } else {
                 // if the config does not need to be updated, skip the config
-                println!("Skipping {:?} already up-to date.", dir.name);
+                println!("Skipping {:#?} already up-to date.", dir.name);
             }
         });
 
@@ -173,7 +173,7 @@ impl<'a> DotConfig<'a> {
     #[inline(always)]
     pub fn force_pull_configs(&self) -> Result<()> {
         self.configs.par_iter().for_each(|dir| {
-            println!("Force pulling {}.", dir.name);
+            println!("Force pulling {:#?}.", dir.name);
             dir.pull_config(self.dotconfigs_path)
                 .expect("Failed to force pull the config");
         });
@@ -206,7 +206,7 @@ impl<'a> DotConfig<'a> {
     #[inline(always)]
     pub fn force_push_configs(&self) -> Result<()> {
         self.configs.par_iter().for_each(|dir| {
-            println!("Force pushing {}.", dir.name);
+            println!("Force pushing {:#?}.", dir.name);
             dir.push_config(self.dotconfigs_path)
                 .expect("Failed to force push the config");
         });
@@ -243,7 +243,7 @@ impl<'a> DotConfig<'a> {
             .ok_or_else(|| PathBuf::from(self.dotconfigs_path))
             .expect("Failed to fix path");
 
-        println!("Cleaning all the configs inside {path:?}");
+        println!("Cleaning all the configs inside {path:#?}");
 
         // iterate over all the files and directories inside the dotconfigs folder
         walkdir::WalkDir::new(&path)
@@ -277,7 +277,7 @@ impl<'a> DotConfig<'a> {
             .par_iter()
             .any(|dir| dir.name == name)
             .then(|| {
-                println!("Config with name {name} already exists.");
+                println!("Config with name {name:#?} already exists.");
                 std::process::exit(1);
             });
 

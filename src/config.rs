@@ -219,58 +219,62 @@ impl<'a> Config<'a> {
         if !dotconfigs_path.exists() {
             println!(
                 "Creating dotconfigs directory: {:#?}",
-                dotconfigs_path.to_str()
+                dotconfigs_path.display()
             );
             std::fs::create_dir_all(&dotconfigs_path)?;
         }
 
-        // if the config path is just a file, then directly copy it
-        if config_path.is_file() {
-            std::fs::copy(&config_path, dotconfigs_path.join(self.name))?;
-            return Ok(());
-        }
-
         // If the config path doesn't exist, skip it
         if !config_path.exists() {
-            println!("Path does not exists! skipping: {:#?}", self.name);
+            println!("Path does not exists! skipping: {:#?}", config_path);
             return Ok(());
         }
 
-        // copy config directory contents to dotconfigs_path directory
-        WalkDir::new(selfpath)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .for_each(|entry| {
-                // ignore git directory
-                if entry.path().to_str().unwrap().contains(".git") {
-                    return;
+        // if the config path is just a file, then directly copy it
+        if let Some(conf) = self.conf_type {
+            match conf {
+                ConfType::File => {
+                    println!("Copying file: {:#?}", config_path);
+                    std::fs::copy(&config_path, dotconfigs_path.join(self.name))?;
+                    return Ok(());
                 }
-
-                let path = entry.path();
-                let new_path = dotconfigs_path.join(
-                    PathBuf::from(&self.name).join(
-                        path.strip_prefix(
-                            self.path
-                                .fix_path()
-                                .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap()),
-                        )
-                        .unwrap(),
-                    ),
-                );
-
-                if path.is_dir() {
-                    if let Err(e) = std::fs::create_dir_all(&new_path) {
-                        match e.kind() {
-                            std::io::ErrorKind::AlreadyExists => {}
-                            _ => {
-                                println!("Failed to create directory: {:#?}", new_path);
+                ConfType::Dir => {
+                    // if the config path is a directory, then copy the directory contents
+                    WalkDir::new(config_path)
+                        .into_iter()
+                        .filter_map(|e| e.ok())
+                        .for_each(|entry| {
+                            // ignore git directory
+                            if entry.path().to_str().unwrap().contains(".git") {
+                                return;
                             }
-                        }
-                    }
-                } else {
-                    std::fs::copy(path, new_path).expect("Failed to copy file");
+                            let path = entry.path();
+                            let new_path =
+                                dotconfigs_path.join(
+                                    PathBuf::from(&self.name).join(
+                                        path.strip_prefix(self.path.fix_path().unwrap_or_else(
+                                            || PathBuf::from_str(self.path).unwrap(),
+                                        ))
+                                        .unwrap(),
+                                    ),
+                                );
+
+                            if path.is_dir() {
+                                if let Err(e) = std::fs::create_dir_all(&new_path) {
+                                    match e.kind() {
+                                        std::io::ErrorKind::AlreadyExists => {}
+                                        _ => {
+                                            println!("Failed to create directory: {:#?}", new_path);
+                                        }
+                                    }
+                                }
+                            } else {
+                                std::fs::copy(path, new_path).expect("Failed to copy file");
+                            }
+                        });
                 }
-            });
+            }
+        }
 
         Ok(())
     }
@@ -289,6 +293,7 @@ impl<'a> Config<'a> {
 
         // If dotconfigs_path doesn't exist, then
         if !dotconfigs_path.exists() {
+            println!("{:#?} does not exist!", dotconfigs_path);
             return Err(anyhow::anyhow!(
                 "Dotconfigs path doesn't exist! Please clone the dotconfigs repo first!"
             ));
@@ -306,7 +311,10 @@ impl<'a> Config<'a> {
                 ConfType::Dir => {
                     // If the config path doesn't exist, create it
                     if !config_path.exists() {
-                        println!("Directory not found! creating: {:#?}", config_path.to_str().unwrap());
+                        println!(
+                            "Directory not found! creating: {:#?}",
+                            config_path.to_str().unwrap()
+                        );
                         std::fs::create_dir_all(&config_path)?;
                     }
 
@@ -371,7 +379,10 @@ where
                 if let Err(e) = fs::copy(entry.path(), to.as_ref().join(entry.file_name())) {
                     match e.kind() {
                         std::io::ErrorKind::AlreadyExists => {
-                            println!("File already exists, skipping: {:#?}", entry.path().display())
+                            println!(
+                                "File already exists, skipping: {:#?}",
+                                entry.path().display()
+                            )
                         }
                         _ => panic!("Error copying file: {e}"),
                     }

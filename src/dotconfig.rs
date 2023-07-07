@@ -142,6 +142,13 @@ impl<'a> DotConfig<'a> {
     pub fn sync_configs(&mut self) -> Result<()> {
         // iterate through all the configs
         self.configs.iter_mut().for_each(|dir| {
+            // check if the config dir exists
+            if !dir.path_exists() {
+                // if the config dir does not exist, exit safely
+                println!("Skipping {:?} does not exist.", dir.name);
+                return;
+            }
+
             // check if the config needs to be updated
             if dir.check_update_metadata_required().is_ok() {
                 println!("Updating {}.", dir.name);

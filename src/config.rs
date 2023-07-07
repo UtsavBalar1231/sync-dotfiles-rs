@@ -58,6 +58,17 @@ impl<'a> Config<'a> {
         }
     }
 
+    /// Check if config path exists
+    #[inline(always)]
+    pub fn path_exists(&self) -> bool {
+        let path = self
+            .path
+            .fix_path()
+            .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
+
+        path.exists()
+    }
+
     /// Hashes the metadata of a file / directory and returns the hash as a string
     #[inline(always)]
     pub fn metadata_digest(&self) -> Result<String> {
@@ -66,10 +77,16 @@ impl<'a> Config<'a> {
             .fix_path()
             .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
 
+        // check if the path exists and return empty string if it doesn't
+        if !self.path_exists() {
+            return Ok(String::new());
+        }
+
+        // safely unwrap the hash or return empty string
         let hasher = MerkleTree::builder(path.to_string_lossy())
             .hash_names(true)
             .build()
-            .expect("Failed to build MerkleTree");
+            .expect("Failed to build merkle tree");
 
         // print hash as hex
         let hash = hasher
@@ -158,11 +175,17 @@ impl<'a> Config<'a> {
             .fix_path()
             .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
 
+        if !path.exists() {
+            println!("Config does not exist: {}", self.path);
+            return Ok(());
+        }
+
         if path.is_file() {
             self.conf_type = Some(ConfType::File);
         } else if path.is_dir() {
             self.conf_type = Some(ConfType::Dir);
         } else {
+            println!("Invalid config type: {}", self.path);
             return Err(anyhow::anyhow!("Invalid config type"));
         }
 
@@ -194,6 +217,10 @@ impl<'a> Config<'a> {
 
         // If dotconfigs_path doesn't exist, create it
         if !dotconfigs_path.exists() {
+            println!(
+                "Creating dotconfigs directory: {:?}",
+                dotconfigs_path.to_str()
+            );
             std::fs::create_dir_all(&dotconfigs_path)?;
         }
 
@@ -203,9 +230,10 @@ impl<'a> Config<'a> {
             return Ok(());
         }
 
-        // If the config path doesn't exist, create it
+        // If the config path doesn't exist, skip it
         if !config_path.exists() {
-            std::fs::create_dir_all(&config_path)?;
+            println!("Path does not exists! skipping: {}", self.name);
+            return Ok(());
         }
 
         // copy config directory contents to dotconfigs_path directory
@@ -231,7 +259,14 @@ impl<'a> Config<'a> {
                 );
 
                 if path.is_dir() {
-                    std::fs::create_dir_all(new_path).expect("Failed to create dir");
+                    if let Err(e) = std::fs::create_dir_all(&new_path) {
+                        match e.kind() {
+                            std::io::ErrorKind::AlreadyExists => {}
+                            _ => {
+                                println!("Failed to create directory: {:?}", new_path);
+                            }
+                        }
+                    }
                 } else {
                     std::fs::copy(path, new_path).expect("Failed to copy file");
                 }

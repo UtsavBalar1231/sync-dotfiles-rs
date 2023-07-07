@@ -23,21 +23,33 @@ pub trait FixPath<T> {
 impl FixPath<PathBuf> for PathBuf {
     /// Fix the path to be absolute and not relative for PathBuf type
     fn fix_path(&self) -> Option<PathBuf> {
+        let home_dir = home_dir().expect("Failed to get home directory");
+
         if self.starts_with("~") {
-            Some(
+            return Some(
                 self.strip_prefix("~")
-                    .map(|p| home_dir().expect("Failed to get home directory").join(p))
+                    .map(|p| home_dir.join(p))
                     .expect("Failed to strip prefix"),
-            )
-        } else {
-            None
+            );
+        } else if self.starts_with("/home/") {
+            // Remove the /home/username/ part from the path
+            return Some(
+                self.strip_prefix("/home/")
+                    .map(|p| p.strip_prefix(p.components().next().unwrap()).unwrap())
+                    .expect("Failed to strip prefix")
+                    .into(),
+            );
         }
+
+        None
     }
 }
 
 impl FixPath<String> for String {
     /// Fix the path to be absolute and not relative for string slice type
     fn fix_path(&self) -> Option<PathBuf> {
+        let home_dir = home_dir().expect("Failed to get home directory");
+
         // replace $(pwd) with the current working directory
         if self.starts_with("$(pwd)") {
             return Some(
@@ -51,16 +63,14 @@ impl FixPath<String> for String {
                 .into(),
             );
         } else if self.starts_with('~') {
-            return Some(
-                self.replace(
-                    '~',
-                    home_dir()
-                        .expect("Failed to get home directory")
-                        .to_str()
-                        .unwrap(),
-                )
-                .into(),
-            );
+            return Some(self.replace('~', home_dir.to_str().unwrap()).into());
+        } else if self.starts_with("/home/") {
+            // Remove the /home/username/ part from the path
+            let mut path = self.strip_prefix("/home/").unwrap().to_string();
+            // Find the next '/' after the first '/' and remove the part before it
+            path.drain(..path.find('/').unwrap() + 1);
+
+            return Some(home_dir.join(path));
         }
         None
     }
@@ -69,6 +79,8 @@ impl FixPath<String> for String {
 impl FixPath<&str> for &str {
     /// Fix the path to be absolute and not relative for string slice type
     fn fix_path(&self) -> Option<PathBuf> {
+        let home_dir = home_dir().expect("Failed to get home directory");
+
         // replace $(pwd) with the current working directory
         if self.starts_with("$(pwd)") {
             return Some(
@@ -82,16 +94,14 @@ impl FixPath<&str> for &str {
                 .into(),
             );
         } else if self.starts_with('~') {
-            return Some(
-                self.replace(
-                    '~',
-                    home_dir()
-                        .expect("Failed to get home directory")
-                        .to_str()
-                        .unwrap(),
-                )
-                .into(),
-            );
+            return Some(self.replace('~', home_dir.to_str().unwrap()).into());
+        } else if self.starts_with("/home/") {
+            // Remove the /home/username/ part from the path
+            let mut path = self.strip_prefix("/home/").unwrap().to_string();
+            // Find the next '/' after the first '/' and remove the part before it
+            path.drain(..path.find('/').unwrap() + 1);
+
+            return Some(home_dir.join(path));
         }
         None
     }

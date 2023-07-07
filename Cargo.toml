@@ -1,6 +1,6 @@
 [package]
 name = "sync-dotfiles-rs"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 authors = ["Utsav Balar <utsavbalar1231@gmail.com>"]
 description = "Easily sync dotfiles from a source directory to a destination directory as per your configuration"

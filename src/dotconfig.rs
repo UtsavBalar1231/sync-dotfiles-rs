@@ -55,14 +55,21 @@ impl<'a> DotConfig<'a> {
             if let Some(path) = filepath {
                 // Fix the path if it is a tilde path
                 if path.fix_path().is_some() {
-                    // Set the config path to the path of the config file after fixing the path as provided by the user
-                    CONFIG_PATH = path.fix_path().unwrap().to_string_lossy().to_string();
+                    // Set the config path to the path of the config file after fixing
+                    // the path as provided by the user
+                    CONFIG_PATH = path
+                        .fix_path()
+                        .unwrap()
+                        .into_os_string()
+                        .into_string()
+                        .unwrap();
                 } else {
                     // Set the config path to the path of the config file
                     CONFIG_PATH = PathBuf::from_str(path)
                         .unwrap()
-                        .to_string_lossy()
-                        .to_string();
+                        .into_os_string()
+                        .into_string()
+                        .unwrap();
                 }
             } else {
                 // Try to find the config file in the $HOME/.config/sync-dotfiles directory first
@@ -73,18 +80,19 @@ impl<'a> DotConfig<'a> {
                 // If the config file is found in the $HOME/.config/sync-dotfiles directory
                 // Set the config path to the path of the config file
                 if file.is_ok() {
-                    CONFIG_PATH = path.to_string_lossy().to_string();
+                    CONFIG_PATH = path.into_os_string().into_string().unwrap();
                 // If the config file is not found in the $HOME/.config/sync-dotfiles directory
                 // Try to find the config file in the current directory
                 } else {
                     CONFIG_PATH = PathBuf::from_str("config.ron")
                         .unwrap()
-                        .to_string_lossy()
-                        .to_string();
+                        .into_os_string()
+                        .into_string()
+                        .unwrap();
                 }
             }
 
-            if CONFIG_PATH != "config.ron" {
+            if CONFIG_PATH.ne("config.ron") {
                 file = fs::File::open(&CONFIG_PATH)
                     .context("Failed to open config file from current directory");
             }

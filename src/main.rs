@@ -21,6 +21,9 @@ fn main() -> Result<()> {
 
     if args.force_pull {
         dotconfig
+            .clean_dotconfigs_dir()
+            .context("Failed to clean all the configs inside the dotconfig directory")?;
+        dotconfig
             .force_pull_configs()
             .context("Failed to force pull configs")?;
 

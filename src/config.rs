@@ -340,6 +340,16 @@ impl<'a> Config<'a> {
                         config_path.to_str().unwrap()
                     );
                     std::fs::create_dir_all(&config_path)?;
+                } else {
+                    // Delete all the files in the config_path directory
+                    if let Err(e) = std::fs::remove_dir_all(&config_path) {
+                        match e.kind() {
+                            std::io::ErrorKind::NotFound => {}
+                            _ => {
+                                println!("Failed to delete directory: {:#?}", config_path);
+                            }
+                        }
+                    }
                 }
 
                 // copy config from dotconfigs_path directory to config_path directory
@@ -355,7 +365,6 @@ impl<'a> Config<'a> {
                         // Convert: /home/user/dotconfigs-repo/config/* to config_path/*
                         let path = &dotconfigs_path.join(config_path.iter().last().unwrap());
 
-                        // TODO: add check if we actually need to copy the file (check the hash of the current file and the hash of the file in the dotconfigs repo)
                         copy_dir(path, &entry.path().to_path_buf())
                             .expect("Failed to copy config back");
                     });
@@ -386,7 +395,6 @@ where
     T: AsRef<std::path::Path>,
 {
     if to.as_ref().exists() {
-        // TODO: Replace this to check if the previous to config has the same hash as the new one
         fs::remove_dir_all(&to)?;
     }
     fs::create_dir_all(&to)?;

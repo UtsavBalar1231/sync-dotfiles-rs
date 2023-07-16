@@ -25,10 +25,46 @@ pub struct Config<'a> {
     pub conf_type: Option<ConfType>,
 }
 
+/// Struct for storing the config type, i.e. whether the config is a file or a directory
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub enum ConfType {
+    /// Config is a file
     File,
+    /// Config is a directory
     Dir,
+}
+
+impl PartialEq for ConfType {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            ConfType::File => match other {
+                ConfType::File => true,
+                ConfType::Dir => false,
+            },
+            ConfType::Dir => match other {
+                ConfType::File => false,
+                ConfType::Dir => true,
+            },
+        }
+    }
+}
+
+impl Eq for ConfType {}
+
+impl ConfType {
+    fn is_file(&self) -> bool {
+        if self.eq(&ConfType::File) {
+            return true;
+        }
+        false
+    }
+
+    fn is_dir(&self) -> bool {
+        if self.eq(&ConfType::Dir) {
+            return true;
+        }
+        false
+    }
 }
 
 impl Default for Config<'_> {
@@ -69,7 +105,7 @@ impl<'a> Config<'a> {
         path.exists()
     }
 
-    /// Hashes the metadata of a file / directory and returns the hash as a string
+    /// Hashes the metadata of a file or directory and returns the hash as a string
     #[inline(always)]
     pub fn metadata_digest(&self) -> Result<String> {
         let path = self
@@ -120,35 +156,29 @@ impl<'a> Config<'a> {
             None => return Ok(()),
         }
 
-        match self.conf_type.as_ref() {
-            Some(conf_type) => match conf_type {
-                ConfType::File => {
-                    let path = self
-                        .path
-                        .fix_path()
-                        .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
+        if let Some(conf) = self.conf_type {
+            if conf.is_file() {
+                let path = self
+                    .path
+                    .fix_path()
+                    .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
 
-                    if path.is_file() {
-                        return Err(anyhow::anyhow!("No update required"));
-                    }
-
-                    Ok(())
+                if path.is_file() {
+                    return Err(anyhow::anyhow!("No update required"));
                 }
-                ConfType::Dir => {
-                    let path = self
-                        .path
-                        .fix_path()
-                        .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
+            } else if conf.is_dir() {
+                let path = self
+                    .path
+                    .fix_path()
+                    .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
 
-                    if path.is_dir() {
-                        return Err(anyhow::anyhow!("No update required"));
-                    }
-
-                    Ok(())
+                if path.is_dir() {
+                    return Err(anyhow::anyhow!("No update required"));
                 }
-            },
-            None => Ok(()),
+            }
         }
+
+        Ok(())
     }
 
     /// Update hash of the config to the current hash
@@ -213,7 +243,7 @@ impl<'a> Config<'a> {
             .fix_path()
             .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
 
-        let config_path = dotconfigs_path.join(&selfpath);
+        let config_path = dotconfigs_path.join(selfpath);
 
         // If dotconfigs_path doesn't exist, create it
         if !dotconfigs_path.exists() {
@@ -232,47 +262,45 @@ impl<'a> Config<'a> {
 
         // if the config path is just a file, then directly copy it
         if let Some(conf) = self.conf_type {
-            match conf {
-                ConfType::File => {
-                    println!("Copying file: {:#?}", config_path);
-                    std::fs::copy(&config_path, dotconfigs_path.join(self.name))?;
-                    return Ok(());
-                }
-                ConfType::Dir => {
-                    // if the config path is a directory, then copy the directory contents
-                    WalkDir::new(config_path)
-                        .into_iter()
-                        .filter_map(|e| e.ok())
-                        .for_each(|entry| {
-                            // ignore git directory
-                            if entry.path().to_str().unwrap().contains(".git") {
-                                return;
-                            }
-                            let path = entry.path();
-                            let new_path =
-                                dotconfigs_path.join(
-                                    PathBuf::from(&self.name).join(
-                                        path.strip_prefix(self.path.fix_path().unwrap_or_else(
-                                            || PathBuf::from_str(self.path).unwrap(),
-                                        ))
-                                        .unwrap(),
-                                    ),
-                                );
+            if conf.is_file() {
+                println!("Copying file: {:#?}", config_path);
+                std::fs::copy(&config_path, dotconfigs_path.join(self.name))?;
+                return Ok(());
+            } else if conf.is_dir() {
+                // if the config path is a directory, then copy the directory contents
+                WalkDir::new(config_path)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                    .for_each(|entry| {
+                        // ignore git directory
+                        if entry.path().to_str().unwrap().contains(".git") {
+                            return;
+                        }
+                        let path = entry.path();
+                        let new_path = dotconfigs_path.join(
+                            PathBuf::from(&self.name).join(
+                                path.strip_prefix(
+                                    self.path
+                                        .fix_path()
+                                        .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap()),
+                                )
+                                .unwrap(),
+                            ),
+                        );
 
-                            if path.is_dir() {
-                                if let Err(e) = std::fs::create_dir_all(&new_path) {
-                                    match e.kind() {
-                                        std::io::ErrorKind::AlreadyExists => {}
-                                        _ => {
-                                            println!("Failed to create directory: {:#?}", new_path);
-                                        }
+                        if path.is_dir() {
+                            if let Err(e) = std::fs::create_dir_all(&new_path) {
+                                match e.kind() {
+                                    std::io::ErrorKind::AlreadyExists => {}
+                                    _ => {
+                                        println!("Failed to create directory: {:#?}", new_path);
                                     }
                                 }
-                            } else {
-                                std::fs::copy(path, new_path).expect("Failed to copy file");
                             }
-                        });
-                }
+                        } else {
+                            std::fs::copy(path, new_path).expect("Failed to copy file");
+                        }
+                    });
             }
         }
 
@@ -300,42 +328,37 @@ impl<'a> Config<'a> {
         }
 
         // If the config_path is a file, then just copy it
-        // TODO: Implement Eq for ConfType
-        if let Some(conf_type) = self.conf_type {
-            match conf_type {
-                ConfType::File => {
-                    std::fs::copy(dotconfigs_path.join(self.name), &config_path)?;
-                    return Ok(());
+        if let Some(conf) = self.conf_type {
+            if conf.is_file() {
+                std::fs::copy(dotconfigs_path.join(self.name), &config_path)?;
+                return Ok(());
+            } else if conf.is_dir() {
+                // If the config path doesn't exist, create it
+                if !config_path.exists() {
+                    println!(
+                        "Directory not found! creating: {:#?}",
+                        config_path.to_str().unwrap()
+                    );
+                    std::fs::create_dir_all(&config_path)?;
                 }
 
-                ConfType::Dir => {
-                    // If the config path doesn't exist, create it
-                    if !config_path.exists() {
-                        println!(
-                            "Directory not found! creating: {:#?}",
-                            config_path.to_str().unwrap()
-                        );
-                        std::fs::create_dir_all(&config_path)?;
-                    }
+                // copy config from dotconfigs_path directory to config_path directory
+                WalkDir::new(&config_path)
+                    .into_iter()
+                    .filter_map(|entry| entry.ok())
+                    .for_each(|entry| {
+                        // ignore git directory
+                        if entry.path().to_str().unwrap().contains(".git") {
+                            return;
+                        }
 
-                    // copy config from dotconfigs_path directory to config_path directory
-                    WalkDir::new(&config_path)
-                        .into_iter()
-                        .filter_map(|entry| entry.ok())
-                        .for_each(|entry| {
-                            // ignore git directory
-                            if entry.path().to_str().unwrap().contains(".git") {
-                                return;
-                            }
+                        // Convert: /home/user/dotconfigs-repo/config/* to config_path/*
+                        let path = &dotconfigs_path.join(config_path.iter().last().unwrap());
 
-                            // Convert: /home/user/dotconfigs-repo/config/* to config_path/*
-                            let path = &dotconfigs_path.join(config_path.iter().last().unwrap());
-
-                            // TODO: add check if we actually need to copy the file (check the hash of the current file and the hash of the file in the dotconfigs repo)
-                            copy_dir(path, &entry.path().to_path_buf())
-                                .expect("Failed to copy config back");
-                        });
-                }
+                        // TODO: add check if we actually need to copy the file (check the hash of the current file and the hash of the file in the dotconfigs repo)
+                        copy_dir(path, &entry.path().to_path_buf())
+                            .expect("Failed to copy config back");
+                    });
             }
         }
 

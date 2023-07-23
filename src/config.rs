@@ -159,7 +159,7 @@ impl<'a> Config<'a> {
 
         match self.hash.as_ref() {
             Some(hash) => {
-                if &digest.unwrap() == hash {
+                if digest.unwrap().eq(hash) {
                     return Err(anyhow::anyhow!("No update required"));
                 }
             }

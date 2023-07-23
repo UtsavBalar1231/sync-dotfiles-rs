@@ -129,7 +129,7 @@ impl<'a> Config<'a> {
         }
 
         // safely unwrap the hash or return empty string
-        let hasher = MerkleTree::builder(path.to_string_lossy())
+        let hasher = MerkleTree::builder(path.to_str().unwrap())
             .hash_names(true)
             .build()
             .expect("Failed to build merkle tree");

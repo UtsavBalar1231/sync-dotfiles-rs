@@ -17,10 +17,14 @@ use walkdir::WalkDir;
 
 #[derive(Serialize, Deserialize)]
 pub struct Config<'a> {
+    /// Name of the config (e.g. vimrc)
     pub name: &'a str,
+    /// Path to the config (e.g. ~/.vimrc)
     pub path: &'a str,
+    /// Hash of the config (used to check if the config has changed since the last time it was synced)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hash: Option<String>,
+    /// Config type (file or directory)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub conf_type: Option<ConfType>,
 }
@@ -34,6 +38,7 @@ pub enum ConfType {
     Dir,
 }
 
+/// ConfType can be compared using `==` for equality
 impl PartialEq for ConfType {
     fn eq(&self, other: &Self) -> bool {
         match self {
@@ -49,9 +54,11 @@ impl PartialEq for ConfType {
     }
 }
 
+/// ConfType can be compared using `==` for equality
 impl Eq for ConfType {}
 
 impl ConfType {
+    /// Check if the config is a file
     fn is_file(&self) -> bool {
         if self.eq(&ConfType::File) {
             return true;
@@ -59,6 +66,7 @@ impl ConfType {
         false
     }
 
+    /// Check if the config is a directory
     fn is_dir(&self) -> bool {
         if self.eq(&ConfType::Dir) {
             return true;
@@ -67,6 +75,7 @@ impl ConfType {
     }
 }
 
+/// Default implementation for Config
 impl Default for Config<'_> {
     fn default() -> Self {
         Config {
@@ -79,6 +88,7 @@ impl Default for Config<'_> {
 }
 
 impl<'a> Config<'a> {
+    /// Create a new Config using the name, path, hash and config type
     #[inline(always)]
     pub fn new(
         name: &'a str,

@@ -1,4 +1,4 @@
-use sync_dotfiles_rs::*;
+use crate::*;
 mod args;
 use args::{get_env_args, SubCommandArgs};
 use std::process::exit;

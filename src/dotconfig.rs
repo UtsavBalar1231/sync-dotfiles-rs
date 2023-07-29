@@ -73,7 +73,9 @@ impl<'a> DotConfig<'a> {
                 }
             } else {
                 // Try to find the config file in the $HOME/.config/sync-dotfiles directory first
-                let path = home_dir().unwrap().join(".config/sync-dotfiles/config.ron");
+                let path = home::home_dir()
+                    .unwrap()
+                    .join(".config/sync-dotfiles/config.ron");
                 file = fs::File::open(&path)
                     .context("Failed to open config file from current directory");
 

@@ -1,17 +1,18 @@
-## Sync Dotfiles based on your environment configuration
----
+# sync-dotfiles-rs: Easily sync dotfiles across machines
 
-### Features
+## Features
+
 - Update your dotconfigs all at once based on the configuration file.
-- Check inside each config folder and update only if the config folder was actually modified.
-- Easy to configure by yourself, simply modify the `config.ron` file as per your choice.
+- Parse the config file and update the configs based on the hash of the config.
+- Add new configs to the config file and update the configs.
+- Parallelize the update process to speed up the process.
+- Easy to configure by yourself, simply modify the `config.ron` file.
+
 ---
 
-### Usage
-The default configuration inside the config.ron is a structure DotConfig which contains dotconfigs_path and a Vector of Config structure.
-The dotconfigs_path is used to store the location of your configs and the Config structure is a list that contains a list of all the configs (it can be a directory or a single config file).
+## Usage
 
-```bash
+```text
 Usage: sync-dotfiles-rs [OPTIONS] [COMMAND]
 
 Commands:
@@ -29,20 +30,120 @@ Options:
   -c, --cpath <CONFIG_PATH>  The path of the config file (default: current_dir/config.ron)
   -h, --help                 Print help
   -V, --version              Print version
-
 ```
-___
+
+### Adding a new config
+
+You can insert a new config in the configs list by simply modifying the configs
+list manually or by using the command:
+
+```bash
+sync-dotfiles-rs add -n <name> -p <path>`.
+```
+
+`-n` or `--name` is the name of the config and `-p` or `--path` is the path to
+the config.
+
+### Updating the config
+
+You can update the config by using the command:
+
+```bash
+sync-dotfiles-rs -u
+```
+
+> Note:
+The hash of the config can initially be set to `None` and you can update it
+later using: `sync-dotfiles-rs -u`
+
+### Clearing the config
+
+You can clear the sync-dotfiles-rs config by using the command:
+
+```bash
+sync-dotfiles-rs -x
+```
+
+### Printing the config
+
+You can print your config file by using the command:
+
+```bash
+sync-dotfiles-rs -p
+```
+
+### Force pushing the configs
+
+Force pushing the configs will push the configs to the local configs directory.
+
+**i.e.** it will overwrite the local configs with the configs in the
+`dotconfigs_path`.
+
+You can force push the configs by using the command:
+
+```bash
+sync-dotfiles-rs -F
+```
+
+### Force pulling the configs
+
+Force pulling the configs will pull the configs from the local configs directory.
+
+**i.e.** it will overwrite the configs in the `dotconfigs_path` with the local
+configs.
+
+You can force pull the configs by using the command:
+
+```bash
+sync-dotfiles-rs -f
+```
+
+## Installation
+
+Taking into consideration that you have **Rust** installed on your system.
+
+### Clone the repository
+
+```bash
+git clone https://github.com/UtsavBalar1231/sync-dotfiles-rs
+```
+
+### Build using cargo
+
+```bash
+cd sync-dotfiles-rs
+
+cargo build --release
+```
+
+### Add the binary to your path
+
+```bash
+sudo cp target/release/sync-dotfiles-rs /usr/local/bin
+```
+
+---
+
+## Configuration
 
 ### Configs structure
 
-```rust
-/// Dotconfig structure that holds a dotconfigs_path handle and a handle to a list of configs
+The default configuration inside the `config.ron` is `struct DotConfig` which
+contains `dotconfigs_path` and a **Vector** of `struct Config`. \
+The `dotconfigs_path` is used to store the location of your configs and \
+`struct Config` is a Vector (list) of all the configs (it can be a directory
+or a single config file).
+
+```text
+/// Dotconfig structure that holds a dotconfigs_path handle and a handle to
+/// a list of configs
 DotConfig {
     dotconfigs_path: String,
     configs: Vec<Config>,
 }
 
-/// Config structure that holds the name, path and hash of the config folder/file
+/// Config structure that holds the name of the config, path to the config,
+/// hash of the config and the type of the config (Dir or File)
 Config {
     name: String,
     path: String,
@@ -50,10 +151,11 @@ Config {
     conf_type: Option<ConfType> // Dir or File
 }
 ```
----
 
-Default configuration inside config.ron looks like a tuple of dotconfigs_path and configs variables
-```bash
+**Default configuration inside `config.ron` looks like a tuple of
+`dotconfigs_path` and `struct Config` variables**
+
+```text
 #![enable(implicit_some)]
 (
     dotconfigs_path: "/* Path to your dotconfigs folder or repository */",
@@ -65,13 +167,15 @@ Default configuration inside config.ron looks like a tuple of dotconfigs_path an
     ],
 )
 ```
----
 
-You can insert a new config in the configs list by simply modifying the configs list manually or by using the command `sync-dotconfigs add -n <name> -p <path>`.
-The hash of the config can initially be set to None and you can update it later using 'sync-dotconfigs -u'.
-```bash
+### Example config file
+
+```text
 dotconfigs_path: "/home/<username>/my-dotfiles/configs/"
 configs: [
     (name: "nvim", path: "~/.config/nvim", hash: None),
 ],
 ```
+
+`dotconfigs_path` is the path to the dotconfigs directory and `configs` is a
+list of configs that you want to sync.

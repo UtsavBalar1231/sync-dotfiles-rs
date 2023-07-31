@@ -273,7 +273,6 @@ impl<'a> Config<'a> {
         // if the config path is just a file, then directly copy it
         if let Some(conf_type) = self.conf_type {
             if conf_type.is_file() {
-                println!("Copying file: {:#?}", config_path);
                 std::fs::copy(
                     &config_path,
                     dotconfigs_path.join(config_path.file_name().unwrap()),

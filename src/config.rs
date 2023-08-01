@@ -366,7 +366,7 @@ impl<'a> Config<'a> {
             // Convert: /home/user/dotconfigs-repo/config/* to config_path/*
             let path = &dotconfigs_path.join(config_path.iter().last().unwrap());
 
-            copy_dir(path, &entry.path().to_path_buf()).expect("Failed to copy directory");
+            utils::copy_dir(path, &entry.path().to_path_buf()).expect("Failed to copy directory");
         });
 
         Ok(())
@@ -438,39 +438,4 @@ impl std::fmt::Display for Config<'_> {
         }
         write!(f, "}}")
     }
-}
-
-fn copy_dir<T>(from: T, to: T) -> Result<()>
-where
-    T: AsRef<std::path::Path>,
-{
-    if to.as_ref().exists() {
-        fs::remove_dir_all(&to)?;
-    }
-    fs::create_dir_all(&to)?;
-
-    fs::read_dir(from)?
-        .filter_map(|e| e.ok())
-        .for_each(|entry| {
-            let filetype = entry.file_type().expect("Failed to read file type");
-            if filetype.is_dir() {
-                copy_dir(entry.path(), to.as_ref().join(entry.file_name()))
-                    .expect("Failed to copy directory");
-            } else if filetype.is_file() {
-                if let Err(e) = fs::copy(entry.path(), to.as_ref().join(entry.file_name())) {
-                    match e.kind() {
-                        std::io::ErrorKind::AlreadyExists => {
-                            println!(
-                                "File already exists, skipping: {:#?}",
-                                entry.path().display()
-                            )
-                        }
-                        _ => panic!("Error copying file: {e}"),
-                    }
-                }
-            } else {
-                println!("Skipping symlinks file: {:#?}", entry.path().display());
-            }
-        });
-    Ok(())
 }

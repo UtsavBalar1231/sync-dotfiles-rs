@@ -12,6 +12,7 @@ pub use std::{path::PathBuf, str::FromStr};
 pub mod config;
 /// Provides support to store the list of the config files with their path in the config file.
 pub mod dotconfig;
+/// Various utility functions.
+pub mod utils;
 /// Provides support to fix the path to make sure it is absolute and not relative.
-pub mod fixpath;
-pub use fixpath::FixPath;
+pub use utils::FixPath;

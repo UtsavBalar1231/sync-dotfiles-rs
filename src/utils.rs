@@ -75,3 +75,39 @@ impl FixPath<&str> for &str {
         None
     }
 }
+
+/// Copy the directory recursively
+pub fn copy_dir<T>(from: T, to: T) -> Result<()>
+where
+    T: AsRef<std::path::Path>,
+{
+    if to.as_ref().exists() {
+        fs::remove_dir_all(&to)?;
+    }
+    fs::create_dir_all(&to)?;
+
+    fs::read_dir(from)?
+        .filter_map(|e| e.ok())
+        .for_each(|entry| {
+            let filetype = entry.file_type().expect("Failed to read file type");
+            if filetype.is_dir() {
+                copy_dir(entry.path(), to.as_ref().join(entry.file_name()))
+                    .expect("Failed to copy directory");
+            } else if filetype.is_file() {
+                if let Err(e) = fs::copy(entry.path(), to.as_ref().join(entry.file_name())) {
+                    match e.kind() {
+                        std::io::ErrorKind::AlreadyExists => {
+                            println!(
+                                "File already exists, skipping: {:#?}",
+                                entry.path().display()
+                            )
+                        }
+                        _ => panic!("Error copying file: {e}"),
+                    }
+                }
+            } else {
+                println!("Skipping symlinks file: {:#?}", entry.path().display());
+            }
+        });
+    Ok(())
+}

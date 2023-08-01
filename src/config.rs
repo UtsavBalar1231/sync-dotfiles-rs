@@ -166,8 +166,8 @@ impl<'a> Config<'a> {
             None => return Ok(()),
         }
 
-        if let Some(conf) = self.conf_type {
-            if conf.is_file() {
+        if let Some(conf_type) = self.conf_type {
+            if conf_type.is_file() {
                 let path = self
                     .path
                     .fix_path()
@@ -176,7 +176,7 @@ impl<'a> Config<'a> {
                 if path.is_file() {
                     return Err(anyhow::anyhow!("No update required"));
                 }
-            } else if conf.is_dir() {
+            } else if conf_type.is_dir() {
                 let path = self
                     .path
                     .fix_path()
@@ -271,12 +271,15 @@ impl<'a> Config<'a> {
         }
 
         // if the config path is just a file, then directly copy it
-        if let Some(conf) = self.conf_type {
-            if conf.is_file() {
+        if let Some(conf_type) = self.conf_type {
+            if conf_type.is_file() {
                 println!("Copying file: {:#?}", config_path);
-                std::fs::copy(&config_path, dotconfigs_path.join(self.name))?;
+                std::fs::copy(
+                    &config_path,
+                    dotconfigs_path.join(config_path.file_name().unwrap()),
+                )?;
                 return Ok(());
-            } else if conf.is_dir() {
+            } else if conf_type.is_dir() {
                 // if the config path is a directory, then copy the directory contents
                 WalkDir::new(config_path)
                     .into_iter()
@@ -317,8 +320,61 @@ impl<'a> Config<'a> {
         Ok(())
     }
 
+    /// Helper function to copy the config directory
+    /// This is only used by the push_config function
+    /// It copies the config directory from the dotconfigs directory to the home directory or
+    /// expected config directory
+    fn copy_config_directory(
+        config_path: &PathBuf,
+        dotconfigs_path: &std::path::Path,
+    ) -> Result<()> {
+        if !config_path.exists() {
+            std::fs::create_dir_all(config_path).expect("Failed to create directory");
+        } else {
+            // Delete all the files in the config_path directory
+            // Use match for Ignoring the NotFound error as it is not a problem
+            if let Err(e) = std::fs::remove_dir_all(config_path) {
+                match e.kind() {
+                    std::io::ErrorKind::NotFound => {}
+                    _ => {
+                        return Err(anyhow::anyhow!(
+                            "Failed to delete directory: {:#?}",
+                            config_path
+                        ));
+                    }
+                }
+            }
+
+            // Create the config_path directory again
+            std::fs::create_dir_all(config_path).expect("Failed to create directory");
+        }
+
+        // copy config from dotconfigs_path directory to config_path directory
+        WalkDir::new(config_path).into_iter().for_each(|entry| {
+            if entry.is_err() {
+                println!("Failed to read directory: {:#?}", entry);
+                return;
+            }
+
+            let entry = entry.ok().unwrap();
+
+            // ignore git directory
+            if entry.path().to_str().unwrap().contains(".git") {
+                return;
+            }
+
+            // Convert: /home/user/dotconfigs-repo/config/* to config_path/*
+            let path = &dotconfigs_path.join(config_path.iter().last().unwrap());
+
+            copy_dir(path, &entry.path().to_path_buf()).expect("Failed to copy directory");
+        });
+
+        Ok(())
+    }
+
     /// Sync configs from the dotconfig directory to the home directory
-    #[inline(always)]
+    /// This works by copying the config directory from the dotconfig directory to the home
+    /// directory or expected config directory
     pub fn push_config(&self, path: &str) -> Result<()> {
         let dotconfigs_path = path
             .fix_path()
@@ -332,52 +388,36 @@ impl<'a> Config<'a> {
         // If dotconfigs_path doesn't exist, then
         if !dotconfigs_path.exists() {
             println!("{:#?} does not exist!", dotconfigs_path);
-            return Err(anyhow::anyhow!(
-                "Dotconfigs path doesn't exist! Please clone the dotconfigs repo first!"
-            ));
+            return Err(anyhow::anyhow!("{:#?} does not exist!", dotconfigs_path));
         }
 
         // If the config_path is a file, then just copy it
-        if let Some(conf) = self.conf_type {
-            if conf.is_file() {
-                std::fs::copy(dotconfigs_path.join(self.name), &config_path)?;
-                return Ok(());
-            } else if conf.is_dir() {
-                // If the config path doesn't exist, create it
-                if !config_path.exists() {
-                    println!(
-                        "Directory not found! creating: {:#?}",
-                        config_path.to_str().unwrap()
-                    );
-                    std::fs::create_dir_all(&config_path)?;
-                } else {
-                    // Delete all the files in the config_path directory
-                    if let Err(e) = std::fs::remove_dir_all(&config_path) {
-                        match e.kind() {
-                            std::io::ErrorKind::NotFound => {}
-                            _ => {
-                                println!("Failed to delete directory: {:#?}", config_path);
-                            }
-                        }
-                    }
-                }
+        if let Some(conf_type) = self.conf_type {
+            if conf_type.is_file() {
+                std::fs::copy(
+                    dotconfigs_path.join(config_path.file_name().unwrap()),
+                    &config_path,
+                )?;
+            } else if conf_type.is_dir() {
+                Self::copy_config_directory(&config_path, &dotconfigs_path)?;
+            } else {
+                println!("Invalid config type: {:#?}", self.conf_type);
 
-                // copy config from dotconfigs_path directory to config_path directory
-                WalkDir::new(&config_path)
-                    .into_iter()
-                    .filter_map(|entry| entry.ok())
-                    .for_each(|entry| {
-                        // ignore git directory
-                        if entry.path().to_str().unwrap().contains(".git") {
-                            return;
-                        }
+                return Err(anyhow::anyhow!("Invalid config type!"));
+            }
+        } else {
+            // check if the config_path is a file
+            if config_path.is_file() {
+                std::fs::copy(
+                    dotconfigs_path.join(config_path.file_name().unwrap()),
+                    &config_path,
+                )?;
+            } else if config_path.is_dir() {
+                Self::copy_config_directory(&config_path, &dotconfigs_path)?;
+            } else {
+                println!("Invalid config type: {:#?}", self.conf_type);
 
-                        // Convert: /home/user/dotconfigs-repo/config/* to config_path/*
-                        let path = &dotconfigs_path.join(config_path.iter().last().unwrap());
-
-                        copy_dir(path, &entry.path().to_path_buf())
-                            .expect("Failed to copy config back");
-                    });
+                return Err(anyhow::anyhow!("Invalid config type!"));
             }
         }
 

@@ -114,6 +114,23 @@ impl<'a> DotConfig<'a> {
         }
     }
 
+    /// Fix the config file path if it is a relative path.
+    /// Also fix the wrong username in the config file path if it is present.
+    /// This will be useful when the config file is shared between multiple users.
+    #[inline(always)]
+    pub fn fixup_config(&mut self) -> Result<()> {
+        self.configs.iter_mut().for_each(|config| {
+            config.path = config
+                .path
+                .fix_path()
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+        });
+
+        Ok(())
+    }
+
     /// Save the config files to local disk at the path either specified by the user or the default path.
     ///
     /// The default path is the path of the config file in the $HOME/.config/sync-dotfiles directory

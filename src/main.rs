@@ -105,6 +105,20 @@ The default config file is as follows:
             exit(0);
         }
 
+        Some(SubCommandArgs::FixConf) => {
+            dotconfig
+                .fixup_config()
+                .context("Failed to fixup the config file")?;
+
+            dotconfig
+                .save_configs()
+                .context("Failed to save config file")?;
+
+            println!("Successfully fixed up the config file");
+
+            exit(0);
+        }
+
         None => {}
     }
 

@@ -54,6 +54,10 @@ pub enum SubCommandArgs {
     /// Clean all the config directories from the dotconfigs path specified in the config file
     #[clap(name = "clean")]
     CleanDirAll,
+
+    /// Fix config file for any errors
+    #[clap(name="fix-conf")]
+    FixConf,
 }
 
 pub fn get_env_args() -> Args {

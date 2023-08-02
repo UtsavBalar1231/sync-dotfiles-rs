@@ -20,7 +20,7 @@ pub struct Config<'a> {
     /// Name of the config (e.g. vimrc)
     pub name: &'a str,
     /// Path to the config (e.g. ~/.vimrc)
-    pub path: &'a str,
+    pub path: String,
     /// Hash of the config (used to check if the config has changed since the last time it was synced)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hash: Option<String>,
@@ -80,7 +80,7 @@ impl Default for Config<'_> {
     fn default() -> Self {
         Config {
             name: "/* Name of the config */",
-            path: "/* Path to the config */",
+            path: "/* Path to the config */".to_string(),
             hash: None,
             conf_type: None,
         }
@@ -92,7 +92,7 @@ impl<'a> Config<'a> {
     #[inline(always)]
     pub fn new(
         name: &'a str,
-        path: &'a str,
+        path: String,
         hash: Option<String>,
         conf_type: Option<ConfType>,
     ) -> Self {
@@ -110,7 +110,7 @@ impl<'a> Config<'a> {
         let path = self
             .path
             .fix_path()
-            .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
+            .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
 
         path.exists()
     }
@@ -121,7 +121,7 @@ impl<'a> Config<'a> {
         let path = self
             .path
             .fix_path()
-            .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
+            .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
 
         // check if the path exists and return empty string if it doesn't
         if !self.path_exists() {
@@ -171,7 +171,7 @@ impl<'a> Config<'a> {
                 let path = self
                     .path
                     .fix_path()
-                    .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
+                    .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
 
                 if path.is_file() {
                     return Err(anyhow::anyhow!("No update required"));
@@ -180,7 +180,7 @@ impl<'a> Config<'a> {
                 let path = self
                     .path
                     .fix_path()
-                    .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
+                    .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
 
                 if path.is_dir() {
                     return Err(anyhow::anyhow!("No update required"));
@@ -213,7 +213,7 @@ impl<'a> Config<'a> {
         let path = self
             .path
             .fix_path()
-            .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
+            .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
 
         if !path.exists() {
             println!("Config does not exist: {:#?}", self.path);
@@ -251,7 +251,7 @@ impl<'a> Config<'a> {
         let selfpath = self
             .path
             .fix_path()
-            .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
+            .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
 
         let config_path = dotconfigs_path.join(selfpath);
 
@@ -294,7 +294,7 @@ impl<'a> Config<'a> {
                                 path.strip_prefix(
                                     self.path
                                         .fix_path()
-                                        .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap()),
+                                        .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap()),
                                 )
                                 .unwrap(),
                             ),
@@ -382,7 +382,7 @@ impl<'a> Config<'a> {
         let config_path = self
             .path
             .fix_path()
-            .unwrap_or_else(|| PathBuf::from_str(self.path).unwrap());
+            .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
 
         // If dotconfigs_path doesn't exist, then
         if !dotconfigs_path.exists() {

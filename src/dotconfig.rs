@@ -298,8 +298,12 @@ impl<'a> DotConfig<'a> {
             conf_type = Some(ConfType::File);
         }
 
-        self.configs
-            .push(Config::new(name, path.to_str().unwrap(), None, conf_type));
+        self.configs.push(Config::new(
+            name,
+            path.to_string_lossy().to_string(),
+            None,
+            conf_type,
+        ));
 
         Ok(())
     }

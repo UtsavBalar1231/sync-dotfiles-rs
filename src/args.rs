@@ -1,65 +1,71 @@
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(name = "sync-dotconfigs")]
 #[command(author = "Utsav Balar")]
 #[command(version, about, long_about)]
-pub struct Args {
-    /// Force push the configs listed in config to the local configs directory
-    #[clap(short = 'F', long = "fpush")]
-    pub force_push: bool,
-
-    /// Force pull the local configs inside the mentioned dotconfigs directory
-    #[clap(short = 'f', long = "fpull")]
-    pub force_pull: bool,
-
-    /// Update the config file with new files
-    #[clap(short, long)]
-    pub update: bool,
-
-    /// Clear the metadata of config entries in the config file
-    #[clap(short = 'x', long = "clear")]
-    pub clear_metadata: bool,
-
-    /// Prints the new config file
-    #[clap(short, long)]
-    pub new: bool,
-
-    /// Subcommand to add or clean config entries
-    #[clap(subcommand)]
-    pub subcommand: Option<SubCommandArgs>,
-
-    /// Print the contents of the config file
-    #[clap(short, long)]
-    pub print: bool,
-
-    /// The path of the config file (default: current_dir/config.ron)
-    #[clap(short, long = "cpath")]
-    pub config_path: Option<String>,
+pub struct SyncDotfilesArgs {
+    #[command(subcommand)]
+    pub command: Commands,
 }
 
 #[derive(Subcommand)]
-pub enum SubCommandArgs {
-    /// Adds a new config entry to your exisiting config file
-    Add {
-        /// The name of the config entry
-        #[arg(short, long)]
-        name: String,
+pub enum Commands {
+    /// Force push configs from dotconfigs directory into your local system
+    #[clap(short_flag = 'f')]
+    ForcePush,
 
-        /// The path of the config entry
-        #[arg(short, long)]
-        path: String,
-    },
+    /// Force pull configs from your local system into the dotconfigs directory
+    #[clap(short_flag = 'F')]
+    ForcePull,
 
-    /// Clean all the config directories from the dotconfigs path specified in the config file
+    /// Update your dotconfigs directory with the latest configs
+    #[clap(short_flag = 'u')]
+    Update,
+
+    /// Clear the metadata of config entries in the sync-dotfiles config
+    #[clap(short_flag = 'x')]
+    ClearMetadata,
+
+    /// Prints a new sync-dotfiles configuration
+    #[clap(short_flag = 'n')]
+    PrintNew,
+
+    /// Prints the currently used sync-dotfiles config file
+    #[clap(short_flag = 'p')]
+    PrintConfig,
+
+    /// Fix your sync-dotfiles config file for any errors
+    #[clap(name = "fixconfig")]
+    FixConfig,
+
+    /// Provide custom path to the config file (default: ${pwd}/config.ron)
+    #[clap(short_flag = 'c')]
+    ConfigPath(ConfigPathArgs),
+
+    /// Adds a new config entry to your exisiting sync-dotfiles config
+    Add(AddArgs),
+
+    /// Clean all the config directories from your specified dotconfigs path
     #[clap(name = "clean")]
-    CleanDirAll,
-
-    /// Fix config file for any errors
-    #[clap(name="fix-conf")]
-    FixConf,
+    Clean,
 }
 
-pub fn get_env_args() -> Args {
-    Args::parse()
+#[derive(Args)]
+pub struct ConfigPathArgs {
+    pub config_path: Option<String>,
+}
+
+#[derive(Args)]
+pub struct AddArgs {
+    /// The name of the config entry
+    #[arg(short, long)]
+    pub name: String,
+    /// The path to the config entry
+    #[arg(short, long)]
+    pub path: String,
+}
+
+pub fn get_env_args() -> SyncDotfilesArgs {
+    SyncDotfilesArgs::parse()
 }

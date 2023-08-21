@@ -102,9 +102,8 @@ fn main() -> Result<()> {
         PrintNew => {
             println!(
                 r#"
-    The default config file is as follows:
-
-    #![enable(implicit_some)]"#
+# The default config file is as follows:
+#![enable(implicit_some)]"#
             );
 
             let config = Options::default()

@@ -32,32 +32,34 @@ pub enum Commands {
     ClearMetadata,
 
     /// Prints a new sync-dotfiles configuration
-    #[clap(short_flag = 'n')]
+    #[clap(name = "new", short_flag = 'n')]
     PrintNew,
 
     /// Prints the currently used sync-dotfiles config file
-    #[clap(short_flag = 'p')]
+    #[clap(name = "printconf", short_flag = 'P')]
     PrintConfig,
 
     /// Fix your sync-dotfiles config file for any errors
-    #[clap(name = "fixconfig")]
+    #[clap(short_flag = 'z')]
     FixConfig,
 
     /// Adds a new config entry to your exisiting sync-dotfiles config
+    #[clap(short_flag = 'a')]
+    #[command(arg_required_else_help = true)]
     Add(AddArgs),
 
     /// Clean all the config directories from your specified dotconfigs path
-    #[clap(name = "clean")]
+    #[clap(short_flag = 'C')]
     Clean,
 }
 
 #[derive(Args)]
 pub struct AddArgs {
     /// The name of the config entry
-    #[arg(short, long)]
+    #[arg(short = 'n', long)]
     pub name: String,
     /// The path to the config entry
-    #[arg(short, long)]
+    #[arg(short = 'p', long)]
     pub path: String,
 }
 

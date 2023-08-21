@@ -5,6 +5,10 @@ use clap::{Args, Parser, Subcommand};
 #[command(author = "Utsav Balar")]
 #[command(version, about, long_about)]
 pub struct SyncDotfilesArgs {
+    /// Provide custom path to the config file (default: ${pwd}/config.ron)
+    #[clap(short, long)]
+    pub config_path: Option<String>,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -39,21 +43,12 @@ pub enum Commands {
     #[clap(name = "fixconfig")]
     FixConfig,
 
-    /// Provide custom path to the config file (default: ${pwd}/config.ron)
-    #[clap(short_flag = 'c')]
-    ConfigPath(ConfigPathArgs),
-
     /// Adds a new config entry to your exisiting sync-dotfiles config
     Add(AddArgs),
 
     /// Clean all the config directories from your specified dotconfigs path
     #[clap(name = "clean")]
     Clean,
-}
-
-#[derive(Args)]
-pub struct ConfigPathArgs {
-    pub config_path: Option<String>,
 }
 
 #[derive(Args)]

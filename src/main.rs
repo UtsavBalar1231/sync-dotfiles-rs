@@ -7,13 +7,8 @@ fn main() -> Result<()> {
     let args = get_env_args();
     let mut dotconfig;
 
-    if let ConfigPath(args::ConfigPathArgs { ref config_path }) = args.command {
-        dotconfig = dotconfig::DotConfig::parse_custom_dotconfig(config_path)
-            .context("Failed to parse custom config file")?;
-    } else {
-        dotconfig =
-            dotconfig::DotConfig::parse_dotconfig().context("Failed to parse config file")?;
-    }
+    dotconfig = dotconfig::DotConfig::parse_dotconfig(&args.config_path)
+        .context("Failed to parse custom config file")?;
 
     match args.command {
         Add(args::AddArgs { name, path }) => {
@@ -129,11 +124,5 @@ fn main() -> Result<()> {
 
             exit(0);
         }
-
-        _ => {
-            println!("Invalid command");
-        }
     }
-
-    Ok(())
 }

@@ -37,80 +37,55 @@ static mut CONFIG_PATH: String = String::new();
 
 impl<'a> DotConfig<'a> {
     #[inline(always)]
-    /// Parses the custom dotconfig file using the path provided by the user
-    /// and returns a DotConfig structure.
-    ///
-    /// The dotconfig file is the config file which contains the list of all
-    /// the config files to be synced.
-    /// It is a RON file (`config.ron`) which is a human readable version of
-    /// the RUST data serialization format.
-    ///
-    /// The config file location can be specified by the user using the --cpath or -c flag.
-    pub fn parse_custom_dotconfig(filepath: &Option<String>) -> Result<Self> {
-        unsafe {
-            // If the user has specified a config file path
-            // Try to find the config file in the specified path
-            if let Some(path) = filepath {
-                CONFIG_PATH = path
-                    .fix_path()
-                    .unwrap()
-                    .into_os_string()
-                    .into_string()
-                    .unwrap();
-            }
-
-            let file = fs::File::open(&CONFIG_PATH)
-                .context("Failed to open config file from current directory");
-
-            if file.is_err() {
-                return Err(anyhow!("Failed to open config file"));
-            }
-
-            file?.read_to_string(&mut CONTENTS)?;
-
-            let config = Options::default()
-                .with_default_extension(Extensions::IMPLICIT_SOME)
-                .from_str(&CONTENTS)
-                .context("Failed to parse config file")?;
-
-            Ok(config)
-        }
-    }
-
-    #[inline(always)]
     /// Parses the dotconfig file and returns a DotConfig structure.
     ///
     /// The dotconfig file is the config file which contains the list of all the config files to be synced.
     /// It is a RON file (`config.ron`) which is a human readable version of the RUST data serialization format.
     ///
+    /// The config file location can be specified by the user using the --cpath or -c flag.
+    /// If the config file location is not specified by the user,
     /// the config file is searched in the $HOME/.config/sync-dotfiles directory.
     /// Else if the config file is not found in the $HOME/.config/sync-dotfiles directory,
     /// the config file is searched in the current directory.
-    pub fn parse_dotconfig() -> Result<Self> {
+    pub fn parse_dotconfig(filepath: &Option<String>) -> Result<Self> {
         unsafe {
-            // Try to find the config file in the $HOME/.config/sync-dotfiles directory first
-            let path = home::home_dir()
-                .unwrap()
-                .join(".config/sync-dotfiles/config.ron");
-
-            // If the config file is found in the $HOME/.config/sync-dotfiles directory
-            // Set the config path to the path of the config file
-            if fs::File::open(&path).is_ok() {
-                println!("Found config file in $HOME/.config/sync-dotfiles directory");
-                CONFIG_PATH = path.into_os_string().into_string().unwrap();
-            // If the config file is not found in the $HOME/.config/sync-dotfiles directory
-            // Try to find the config file in the current directory
-            } else {
-                let local_config_path = PathBuf::from_str("config.ron")
-                    .unwrap()
+            // If the user has specified a config file path
+            // Try to find the config file in the specified path
+            if let Some(path) = filepath {
+                // Set the config path to the path of the config file after fixing
+                // the path as provided by the user
+                CONFIG_PATH = path
+                    .fix_path()
+                    .unwrap_or_else(|| PathBuf::from(path))
                     .into_os_string()
                     .into_string()
                     .unwrap();
-                if fs::File::open(&local_config_path).is_ok() {
-                    println!("Found config file in current directory");
-                    CONFIG_PATH = local_config_path;
+            } else {
+                // Try to find the config file in the $HOME/.config/sync-dotfiles directory first
+                let path = home::home_dir()
+                    .unwrap()
+                    .join(".config/sync-dotfiles/config.ron");
+
+                // If the config file is found in the $HOME/.config/sync-dotfiles directory
+                // Set the config path to the path of the config file
+                if fs::File::open(&path).is_ok() {
+                    println!("Found config file in $HOME/.config/sync-dotfiles directory");
+                    CONFIG_PATH = path.into_os_string().into_string().unwrap();
+                // If the config file is not found in the $HOME/.config/sync-dotfiles directory
+                // Try to find the config file in the current directory
                 } else {
-                    return Err(anyhow!("Failed to open config file, No config found!"));
+                    let local_config_path = PathBuf::from_str("config.ron")
+                        .unwrap()
+                        .into_os_string()
+                        .into_string()
+                        .unwrap();
+
+                    if fs::File::open(&local_config_path).is_ok() {
+                        println!("Found config file in current directory");
+                        CONFIG_PATH = local_config_path;
+                    } else {
+                        return Err(anyhow!("Failed to open config file, No config found!"));
+                    }
                 }
             }
 
@@ -137,7 +112,7 @@ impl<'a> DotConfig<'a> {
             config.path = config
                 .path
                 .fix_path()
-                .unwrap()
+                .unwrap_or_else(|| PathBuf::from(&config.path))
                 .to_string_lossy()
                 .to_string();
         });

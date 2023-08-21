@@ -81,6 +81,15 @@ pub fn copy_dir<T>(from: T, to: T) -> Result<()>
 where
     T: AsRef<std::path::Path>,
 {
+    let from = from.as_ref();
+
+    if !from.exists() {
+        return Err(anyhow!(format!(
+            "Path does not exist or access denied!: {:#?}",
+            from
+        )));
+    }
+
     if to.as_ref().exists() {
         fs::remove_dir_all(&to)?;
     }

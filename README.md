@@ -10,26 +10,55 @@
 
 ---
 
+## Installation
+
+Taking into consideration that you have **Rust** installed on your system.
+
+### Clone the repository
+
+```bash
+git clone https://github.com/UtsavBalar1231/sync-dotfiles-rs
+```
+
+### Build using cargo
+
+```bash
+cd sync-dotfiles-rs
+
+cargo build --release
+```
+
+### Add the binary to your path
+
+```bash
+sudo cp target/release/sync-dotfiles-rs /usr/local/bin
+```
+
+---
+
 ## Usage
 
 ```text
-Usage: sync-dotfiles-rs [OPTIONS] [COMMAND]
+Easily sync dotfiles from a source directory to a destination directory as per your configuration
+
+Usage: sync-dotfiles-rs [OPTIONS] <COMMAND>
 
 Commands:
-  add    Adds a new config entry to your exisiting config file
-  clean  Clean all the config directories from the dotconfigs path specified in the config file
-  help   Print this message or the help of the given subcommand(s)
+  force-push, -f      Force push configs from dotconfigs directory into your local system
+  force-pull, -F      Force pull configs from your local system into the dotconfigs directory
+  update, -u          Update your dotconfigs directory with the latest configs
+  clear-metadata, -x  Clear the metadata of config entries in the sync-dotfiles config
+  new, -n             Prints a new sync-dotfiles configuration
+  printconf, -P       Prints the currently used sync-dotfiles config file
+  fix-config, -z      Fix your sync-dotfiles config file for any errors
+  add, -a             Adds a new config entry to your exisiting sync-dotfiles config
+  clean, -C           Clean all the config directories from your specified dotconfigs path
+  help                Print this message or the help of the given subcommand(s)
 
 Options:
-  -F, --fpush                Force push the configs listed in config to the local configs directory
-  -f, --fpull                Force pull the local configs inside the mentioned dotconfigs directory
-  -u, --update               Update the config file with new files
-  -x, --clear                Clear the metadata of config entries in the config file
-  -n, --new                  Prints the new config file
-  -p, --print                Print the contents of the config file
-  -c, --cpath <CONFIG_PATH>  The path of the config file (default: current_dir/config.ron)
-  -h, --help                 Print help
-  -V, --version              Print version
+  -c, --config-path <CONFIG_PATH>  Provide custom path to the config file (default: ${pwd}/config.ron)
+  -h, --help                       Print help
+  -V, --version                    Print version
 ```
 
 ### Adding a new config
@@ -53,8 +82,8 @@ sync-dotfiles-rs -u
 ```
 
 > Note:
-The hash of the config can initially be set to `None` and you can update it
-later using: `sync-dotfiles-rs -u`
+> The hash of the config can initially be set to `None` and you can update it
+> later using: `sync-dotfiles-rs -u`
 
 ### Clearing the config
 
@@ -69,7 +98,7 @@ sync-dotfiles-rs -x
 You can print your config file by using the command:
 
 ```bash
-sync-dotfiles-rs -p
+sync-dotfiles-rs -P
 ```
 
 ### Force pushing the configs
@@ -98,30 +127,6 @@ You can force pull the configs by using the command:
 sync-dotfiles-rs -f
 ```
 
-## Installation
-
-Taking into consideration that you have **Rust** installed on your system.
-
-### Clone the repository
-
-```bash
-git clone https://github.com/UtsavBalar1231/sync-dotfiles-rs
-```
-
-### Build using cargo
-
-```bash
-cd sync-dotfiles-rs
-
-cargo build --release
-```
-
-### Add the binary to your path
-
-```bash
-sudo cp target/release/sync-dotfiles-rs /usr/local/bin
-```
-
 ---
 
 ## Configuration
@@ -129,8 +134,8 @@ sudo cp target/release/sync-dotfiles-rs /usr/local/bin
 ### Configs structure
 
 The default configuration inside the `config.ron` is `struct DotConfig` which
-contains `dotconfigs_path` and a **Vector** of `struct Config`. \
-The `dotconfigs_path` is used to store the location of your configs and \
+contains `dotconfigs_path` and a **Vector** of `struct Config`.\
+The `dotconfigs_path` is used to store the location of your configs and\
 `struct Config` is a Vector (list) of all the configs (it can be a directory
 or a single config file).
 

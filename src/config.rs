@@ -6,10 +6,10 @@ use walkdir::WalkDir;
 /// Config struct for storing config metadata and syncing configs
 ///
 /// # Example
-/// ```
-/// use dotconfigs::config::Config;
+/// ```rust
+/// use sync_dotfiles_rs::config::Config;
 ///
-/// let config = Config::new("<Name of the config>", "<Path to the config>", None);
+/// let config = Config::new("placeholder", String::from("~/placeholder"), None, None);
 /// ```
 /// Provides methods to sync configs from the dotconfig directory to the home directory
 /// and vice versa. Also provides methods to check if the config has changed since the last
@@ -79,8 +79,8 @@ impl ConfType {
 impl Default for Config<'_> {
     fn default() -> Self {
         Config {
-            name: "/* Name of the config */",
-            path: "/* Path to the config */".to_string(),
+            name: "placeholder",
+            path: String::from("~/placeholder"),
             hash: None,
             conf_type: None,
         }

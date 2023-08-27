@@ -100,15 +100,14 @@ fn main() -> Result<()> {
         }
 
         PrintNew => {
-            println!(
-                r#"
-# The default config file is as follows:
-#![enable(implicit_some)]"#
-            );
-
             let config = Options::default()
                 .with_default_extension(Extensions::IMPLICIT_SOME)
-                .to_string_pretty(&dotconfig::DotConfig::default(), PrettyConfig::default())?;
+                .to_string_pretty(
+                    &dotconfig::DotConfig::get_new_config(),
+                    utils::get_ron_formatter(),
+                )
+                .context("Failed to print the new config")?;
+
             println!("{config}");
 
             exit(0);

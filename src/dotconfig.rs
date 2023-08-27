@@ -1,5 +1,5 @@
-use crate::*;
 use crate::{config::ConfType, config::Config};
+use crate::{utils::get_ron_formatter, *};
 use rayon::prelude::*;
 use std::io::Write;
 
@@ -128,9 +128,7 @@ impl<'a> DotConfig<'a> {
     ///
     #[inline(always)]
     pub fn save_configs(&self) -> Result<()> {
-        let ron_pretty = PrettyConfig::new()
-            .depth_limit(2)
-            .extensions(Extensions::IMPLICIT_SOME);
+        let ron_pretty = get_ron_formatter();
 
         let config = to_string_pretty(self, ron_pretty).context("Failed to serialize config")?;
 
@@ -200,10 +198,8 @@ impl<'a> DotConfig<'a> {
     /// Force push all the configs mentioned in the config file from the dotconfig directory,
     /// To the user specified path for each config
     ///
-    /// ```
-    ///
-    /// # Example:
-    /// # cat config.ron
+    /// ```text
+    /// # Example: config.ron
     ///
     /// #(implicit_some)
     /// (
@@ -216,6 +212,7 @@ impl<'a> DotConfig<'a> {
     ///     ]
     /// )
     /// ```
+    ///
     /// During the force push, the config file will be pushed to the path specified by the user
     /// i.e. /home/user/.config/nvim
     ///
@@ -313,6 +310,11 @@ impl<'a> DotConfig<'a> {
 
         Ok(())
     }
+
+    /// Create a new dotconfig file with default template
+    pub fn get_new_config() -> Self {
+        DotConfig::default()
+    }
 }
 
 /// Display implementation for DotConfig
@@ -334,8 +336,24 @@ impl std::fmt::Display for DotConfig<'_> {
 impl Default for DotConfig<'_> {
     fn default() -> Self {
         DotConfig {
-            dotconfigs_path: "/* Path to your dotconfigs folder or repository */",
+            dotconfigs_path: "~/dotfiles",
             configs: vec![Config::default()],
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_parse_exisiting_defconfig() {
+        let existing_dotconfig =
+            DotConfig::parse_dotconfig(&Some(String::from("./examples/config.ron")));
+
+        debug_assert!(
+            existing_dotconfig.is_ok(),
+            "Failed to parse the existing dotconfig file"
+        );
     }
 }

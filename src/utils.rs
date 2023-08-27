@@ -128,3 +128,10 @@ where
         });
     Ok(())
 }
+
+/// Get pretty printter for ron format
+pub fn get_ron_formatter() -> PrettyConfig {
+    PrettyConfig::new()
+        .depth_limit(2)
+        .extensions(Extensions::IMPLICIT_SOME)
+}

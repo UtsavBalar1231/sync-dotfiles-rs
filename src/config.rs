@@ -1,6 +1,8 @@
 use crate::*;
 use merkle_hash::MerkleTree;
 use rayon::prelude::*;
+use std::str::FromStr;
+use utils::FixPath;
 use walkdir::WalkDir;
 
 /// Config struct for storing config metadata and syncing configs

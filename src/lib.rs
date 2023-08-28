@@ -5,8 +5,7 @@ pub use ron::{
     Options,
 };
 pub use serde::{Deserialize, Serialize};
-pub use std::{fs, io::Read};
-pub use std::{path::PathBuf, str::FromStr};
+pub use std::path::PathBuf;
 
 /// Provides support to represent and manipulate the config file data using a structure.
 pub mod config;
@@ -14,5 +13,3 @@ pub mod config;
 pub mod dotconfig;
 /// Various utility functions.
 pub mod utils;
-/// Provides support to fix the path to make sure it is absolute and not relative.
-pub use utils::FixPath;

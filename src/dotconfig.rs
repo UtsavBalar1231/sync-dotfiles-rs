@@ -2,6 +2,8 @@ use crate::{config::ConfType, config::Config};
 use crate::{utils::get_ron_formatter, *};
 use rayon::prelude::*;
 use std::io::Write;
+use std::{fs, io::Read, str::FromStr};
+use utils::FixPath;
 
 /// Struct to store the contents of the config file (`config.ron`)
 ///

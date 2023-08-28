@@ -1,4 +1,4 @@
-use sync_dotfiles_rs::*;
+use sync_dotfiles_rs::{utils::FixPath, *};
 mod args;
 use args::{get_env_args, Commands::*};
 use std::process::exit;

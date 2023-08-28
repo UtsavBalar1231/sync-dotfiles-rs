@@ -99,11 +99,11 @@ where
     }
 
     if to.as_ref().exists() {
-        fs::remove_dir_all(&to)?;
+        std::fs::remove_dir_all(&to)?;
     }
-    fs::create_dir_all(&to)?;
+    std::fs::create_dir_all(&to)?;
 
-    fs::read_dir(from)?
+    std::fs::read_dir(from)?
         .filter_map(|e| e.ok())
         .for_each(|entry| {
             let filetype = entry.file_type().expect("Failed to read file type");
@@ -111,7 +111,7 @@ where
                 copy_dir(entry.path(), to.as_ref().join(entry.file_name()))
                     .expect("Failed to copy directory");
             } else if filetype.is_file() {
-                if let Err(e) = fs::copy(entry.path(), to.as_ref().join(entry.file_name())) {
+                if let Err(e) = std::fs::copy(entry.path(), to.as_ref().join(entry.file_name())) {
                     match e.kind() {
                         std::io::ErrorKind::AlreadyExists => {
                             println!(

@@ -38,6 +38,10 @@ impl FixPath<PathBuf> for PathBuf {
 impl FixPath<String> for String {
     /// Fix the path to be absolute and not relative for string slice type
     fn fix_path(&self) -> Option<PathBuf> {
+        if self.is_empty() {
+            return Some(std::path::PathBuf::new());
+        }
+
         let home_dir = home_dir().expect("Failed to get home directory");
 
         // Check if the path starts with ~/ and replace it with the home directory
@@ -59,6 +63,10 @@ impl FixPath<String> for String {
 impl FixPath<&str> for &str {
     /// Fix the path to be absolute and not relative for string slice type
     fn fix_path(&self) -> Option<PathBuf> {
+        if self.is_empty() {
+            return Some(std::path::PathBuf::new());
+        }
+
         let home_dir = home_dir().expect("Failed to get home directory");
 
         // Check if the path starts with ~/ and replace it with the home directory

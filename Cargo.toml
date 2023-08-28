@@ -1,6 +1,6 @@
 [package]
 name = "sync-dotfiles-rs"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 authors = ["Utsav Balar <utsavbalar1231@gmail.com>"]
 description = "Easily sync dotfiles from a source directory to a destination directory as per your configuration"
@@ -17,7 +17,7 @@ version = "1.0"
 features = ["derive"]
 
 [dependencies.clap]
-version = "4.3"
+version = "4.4"
 features = ["derive"]
 
 [dependencies.merkle_hash]

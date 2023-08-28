@@ -101,6 +101,34 @@ You can print your config file by using the command:
 sync-dotfiles-rs -P
 ```
 
+### Using a custom config file path
+
+There can be times when you want to use a custom config file path and not the
+default one.\
+You can use a custom config file path by using the command:
+
+```bash
+sync-dotfiles-rs -c <path_to_config_file>
+```
+
+You can also use other commands with the custom config file path by using the
+command:
+
+```bash
+sync-dotfiles-rs -c <path_to_config_file> <command>
+```
+
+Example:
+
+```bash
+sync-dotfiles-rs -c /home/utsav/dotfiles/configs/config.ron -u
+```
+
+> :warning: **Note:**
+> You should first use the `-c <path_to_config_file>` flag and then the command
+> and not the other way around.
+> You can use the custom config file path with all the commands except `new`.
+
 ### Force pushing the configs
 
 Force pushing the configs will push the configs to the local configs directory.

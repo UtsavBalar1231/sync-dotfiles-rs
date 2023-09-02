@@ -32,7 +32,7 @@ pub struct Config<'a> {
 }
 
 /// Struct for storing the config type, i.e. whether the config is a file or a directory
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ConfType {
     /// Config is a file
     File,
@@ -168,7 +168,7 @@ impl<'a> Config<'a> {
             None => return Ok(()),
         }
 
-        if let Some(conf_type) = self.conf_type {
+        if let Some(conf_type) = &self.conf_type {
             if conf_type.is_file() {
                 let path = self
                     .path
@@ -273,7 +273,7 @@ impl<'a> Config<'a> {
         }
 
         // if the config path is just a file, then directly copy it
-        if let Some(conf_type) = self.conf_type {
+        if let Some(conf_type) = &self.conf_type {
             if conf_type.is_file() {
                 std::fs::copy(
                     &config_path,
@@ -393,7 +393,7 @@ impl<'a> Config<'a> {
         }
 
         // If the config_path is a file, then just copy it
-        if let Some(conf_type) = self.conf_type {
+        if let Some(conf_type) = &self.conf_type {
             if conf_type.is_file() {
                 std::fs::copy(
                     dotconfigs_path.join(config_path.file_name().unwrap()),

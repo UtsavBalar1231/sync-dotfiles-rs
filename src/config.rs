@@ -1,6 +1,5 @@
 use crate::*;
-use merkle_hash::MerkleTree;
-use rayon::prelude::*;
+use sha1::{Digest, Sha1};
 use std::str::FromStr;
 use utils::FixPath;
 use walkdir::WalkDir;
@@ -130,20 +129,14 @@ impl<'a> Config<'a> {
             return Ok(String::new());
         }
 
-        // safely unwrap the hash or return empty string
-        let hasher = MerkleTree::builder(path.to_str().unwrap())
-            .hash_names(true)
-            .build()
-            .expect("Failed to build merkle tree");
-
-        // print hash as hex
-        let hash = hasher
-            .root
-            .item
-            .hash
-            .par_iter()
-            .map(|b| format!("{b:x}"))
-            .collect::<String>();
+        let mut hash: String = String::new();
+        if path.is_file() {
+            hash = hasher::get_file_hash(&path, &mut Sha1::new())?;
+        }
+        if path.is_dir() {
+            let dir_files = hasher::list_dir_files(&path);
+            hash = hasher::get_complete_dir_hash(&dir_files, &mut Sha1::new())?
+        }
 
         Ok(hash)
     }
@@ -153,44 +146,21 @@ impl<'a> Config<'a> {
     /// Also required because the config type is not stored in the dotconfig file
     /// and is only used to determine if the config is a file or a directory during syncing
     #[inline(always)]
-    pub fn check_update_metadata_required(&self) -> Result<()> {
-        let digest = self.metadata_digest();
-        if digest.is_err() {
-            return Err(anyhow::anyhow!("Failed to get metadata for {}", self.path));
-        }
-
+    pub fn check_update_metadata_required(&self) -> bool {
         match self.hash.as_ref() {
             Some(hash) => {
-                if digest.unwrap().eq(hash) {
-                    return Err(anyhow::anyhow!("No update required"));
+                let digest = self
+                    .metadata_digest()
+                    .expect("Failed to get metadata digest");
+
+                if !hash.eq(&digest) {
+                    true
+                } else {
+                    self.conf_type.is_none()
                 }
             }
-            None => return Ok(()),
+            None => true,
         }
-
-        if let Some(conf_type) = &self.conf_type {
-            if conf_type.is_file() {
-                let path = self
-                    .path
-                    .fix_path()
-                    .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
-
-                if path.is_file() {
-                    return Err(anyhow::anyhow!("No update required"));
-                }
-            } else if conf_type.is_dir() {
-                let path = self
-                    .path
-                    .fix_path()
-                    .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
-
-                if path.is_dir() {
-                    return Err(anyhow::anyhow!("No update required"));
-                }
-            }
-        }
-
-        Ok(())
     }
 
     /// Update hash of the config to the current hash
@@ -222,13 +192,15 @@ impl<'a> Config<'a> {
             return Ok(());
         }
 
-        if path.is_file() {
-            self.conf_type = Some(ConfType::File);
-        } else if path.is_dir() {
-            self.conf_type = Some(ConfType::Dir);
-        } else {
-            println!("Invalid config type: {:#?}", self.path);
-            return Err(anyhow::anyhow!("Invalid config type"));
+        if self.conf_type.is_none() {
+            if path.is_file() {
+                self.conf_type = Some(ConfType::File);
+            } else if path.is_dir() {
+                self.conf_type = Some(ConfType::Dir);
+            } else {
+                println!("Invalid config type: {:#?}", self.path);
+                return Err(anyhow::anyhow!("Invalid config type"));
+            }
         }
 
         Ok(())

@@ -166,7 +166,7 @@ impl<'a> DotConfig<'a> {
             }
 
             // check if the config needs to be updated
-            if dir.check_update_metadata_required().is_ok() {
+            if dir.check_update_metadata_required() {
                 println!("Updating {:#?}.", dir.name);
 
                 // update the metadata in the config file

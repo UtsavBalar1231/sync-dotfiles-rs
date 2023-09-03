@@ -1,13 +1,22 @@
-use sync_dotfiles_rs::{utils::FixPath, *};
+use sync_dotfiles_rs::{
+    dotconfig::DotConfig,
+    utils::{self, FixPath},
+};
 mod args;
+use anyhow::{Context, Result};
 use args::{get_env_args, Commands::*};
-use std::process::exit;
+pub use ron::{
+    extensions::Extensions,
+    ser::{to_string_pretty, PrettyConfig},
+    Options,
+};
+use std::{path::PathBuf, process::exit};
 
 fn main() -> Result<()> {
     let args = get_env_args();
     let mut dotconfig;
 
-    dotconfig = dotconfig::DotConfig::parse_dotconfig(&args.config_path)
+    dotconfig = DotConfig::parse_dotconfig(&args.config_path)
         .context("Failed to parse custom config file")?;
 
     match args.command {
@@ -102,10 +111,7 @@ fn main() -> Result<()> {
         PrintNew => {
             let config = Options::default()
                 .with_default_extension(Extensions::IMPLICIT_SOME)
-                .to_string_pretty(
-                    &dotconfig::DotConfig::get_new_config(),
-                    utils::get_ron_formatter(),
-                )
+                .to_string_pretty(&DotConfig::get_new_config(), utils::get_ron_formatter())
                 .context("Failed to print the new config")?;
 
             println!("{config}");

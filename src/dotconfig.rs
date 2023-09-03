@@ -1,9 +1,18 @@
-use crate::{config::ConfType, config::Config};
-use crate::{utils::get_ron_formatter, *};
+use crate::{
+    config::ConfType,
+    config::Config,
+    utils::{get_ron_formatter, FixPath},
+};
+use anyhow::{anyhow, Context, Result};
 use rayon::prelude::*;
-use std::io::Write;
-use std::{fs, io::Read, str::FromStr};
-use utils::FixPath;
+use ron::{extensions::Extensions, ser::to_string_pretty, Options};
+use serde::{Deserialize, Serialize};
+use std::{
+    fs,
+    io::{Read, Write},
+    path::PathBuf,
+    str::FromStr,
+};
 
 /// Struct to store the contents of the config file (`config.ron`)
 ///

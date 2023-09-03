@@ -1,7 +1,11 @@
-use crate::*;
+use crate::{
+    hasher,
+    utils::{self, FixPath},
+};
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
-use std::str::FromStr;
-use utils::FixPath;
+use std::{path::PathBuf, str::FromStr};
 use walkdir::WalkDir;
 
 /// Config struct for storing config metadata and syncing configs

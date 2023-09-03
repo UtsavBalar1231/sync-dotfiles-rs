@@ -21,11 +21,6 @@ features = ["derive"]
 version = "4.4"
 features = ["derive"]
 
-[dependencies.merkle_hash]
-version = "3.5"
-default-features = false
-features = ["parallel"]
-
 [dependencies.digest]
 version = "0.10"
 features = ["alloc"]

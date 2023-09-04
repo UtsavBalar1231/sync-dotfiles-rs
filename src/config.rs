@@ -21,9 +21,9 @@ use walkdir::WalkDir;
 /// time it was synced.
 
 #[derive(Serialize, Deserialize)]
-pub struct Config<'a> {
+pub struct Config {
     /// Name of the config (e.g. vimrc)
-    pub name: &'a str,
+    pub name: String,
     /// Path to the config (e.g. ~/.vimrc)
     pub path: String,
     /// Hash of the config (used to check if the config has changed since the last time it was synced)
@@ -81,10 +81,10 @@ impl ConfType {
 }
 
 /// Default implementation for Config
-impl Default for Config<'_> {
+impl Default for Config {
     fn default() -> Self {
         Config {
-            name: "placeholder",
+            name: String::from("placeholder"),
             path: String::from("~/placeholder"),
             hash: None,
             conf_type: None,
@@ -92,11 +92,11 @@ impl Default for Config<'_> {
     }
 }
 
-impl<'a> Config<'a> {
+impl Config {
     /// Create a new Config using the name, path, hash and config type
     #[inline(always)]
     pub fn new(
-        name: &'a str,
+        name: String,
         path: String,
         hash: Option<String>,
         conf_type: Option<ConfType>,
@@ -221,7 +221,7 @@ impl<'a> Config<'a> {
 
     /// Sync configs from the dotconfig directory to the home directory
     #[inline(always)]
-    pub fn pull_config(&self, path: &str) -> Result<()> {
+    pub fn pull_config(&self, path: &String) -> Result<()> {
         let dotconfigs_path = path
             .fix_path()
             .unwrap_or_else(|| PathBuf::from_str(path).unwrap());
@@ -402,7 +402,7 @@ impl<'a> Config<'a> {
     }
 }
 
-impl std::fmt::Display for Config<'_> {
+impl std::fmt::Display for Config {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{ ")?;
         write!(f, "name: {}, ", self.name)?;

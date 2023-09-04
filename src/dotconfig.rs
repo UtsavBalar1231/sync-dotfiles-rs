@@ -3,16 +3,12 @@ use crate::{
     config::Config,
     utils::{get_ron_formatter, FixPath},
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
+use lazy_static::lazy_static;
 use rayon::prelude::*;
 use ron::{extensions::Extensions, ser::to_string_pretty, Options};
 use serde::{Deserialize, Serialize};
-use std::{
-    fs,
-    io::{Read, Write},
-    path::PathBuf,
-    str::FromStr,
-};
+use std::{fs, io::Write, path::PathBuf, sync::Mutex};
 
 /// Struct to store the contents of the config file (`config.ron`)
 ///
@@ -21,32 +17,59 @@ use std::{
 ///
 /// This struct implements the Serialize and Deserialize traits from serde
 /// which are used to serialize and deserialize the struct to and from a string.
-///
 #[derive(Serialize, Deserialize)]
-pub struct DotConfig<'a> {
+pub struct DotConfig {
     /// The path of the dotconfig directory will panic if the path is not a valid utf-8 string or empty
-    pub dotconfigs_path: &'a str,
+    pub dotconfigs_path: String,
     /// The vector of Config structs which holds the contents of the config file
-    pub configs: Vec<Config<'a>>,
+    pub configs: Vec<Config>,
 }
 
-/// To store the contents of the config file for use in other functions.
-///
-/// The contents is stored in a static variable so that it can be used by parse_dotconfig function.
-/// And the contents can be used by other functions without having to deal with rust borrowing rules
-///
-static mut CONTENTS: String = String::new();
-
+lazy_static! {
 /// To store the path of the config file for use in other functions.
 ///
 /// The path can be changed by the user using the --config-path flag.
 /// Initially, the path is set to the path of the config file in the $HOME/.config/sync-dotfiles directory.
 /// If the config file is not found in the $HOME/.config/sync-dotfiles directory,
 /// the path is set to the path of the config file in the current directory.
-///
-static mut CONFIG_PATH: String = String::new();
+static ref CONFIG_PATH: Mutex<PathBuf> = Mutex::new(get_default_config_path());
+}
 
-impl<'a> DotConfig<'a> {
+fn get_default_config_path() -> PathBuf {
+    if let Some(home_dir) = home::home_dir() {
+        // Try to find the config file in the ${HOME}/.sync-dotfiles.ron
+        let path = home_dir.join(".sync-dotfiles.ron");
+        if fs::File::open(&path).is_ok() {
+            println!(
+                "Found config file: {}/.sync-dotfiles.ron",
+                home_dir.display()
+            );
+            return path;
+        }
+        // Try to find the config file in the ${HOME}/.config/sync-dotfiles directory
+        let path = home_dir.join(".config/sync-dotfiles/config.ron");
+        if fs::File::open(&path).is_ok() {
+            println!(
+                "Found config file in {}/.config/sync-dotfiles directory",
+                home_dir.display()
+            );
+            return path;
+        }
+    }
+
+    // If the config file is not found in the $HOME/.config/sync-dotfiles directory
+    // Try to find the config file in the current directory
+    let local_config_path = PathBuf::from("config.ron");
+    if fs::File::open(&local_config_path).is_ok() {
+        println!("Found config file in current directory");
+        return local_config_path;
+    }
+
+    // Return an empty path if no config file is found
+    PathBuf::new()
+}
+
+impl DotConfig {
     #[inline(always)]
     /// Parses the dotconfig file and returns a DotConfig structure.
     ///
@@ -59,59 +82,20 @@ impl<'a> DotConfig<'a> {
     /// Else if the config file is not found in the $HOME/.config/sync-dotfiles directory,
     /// the config file is searched in the current directory.
     pub fn parse_dotconfig(filepath: &Option<String>) -> Result<Self> {
-        unsafe {
-            // If the user has specified a config file path
-            // Try to find the config file in the specified path
-            if let Some(path) = filepath {
-                // Set the config path to the path of the config file after fixing
-                // the path as provided by the user
-                CONFIG_PATH = path
-                    .fix_path()
-                    .unwrap_or_else(|| PathBuf::from(path))
-                    .into_os_string()
-                    .into_string()
-                    .unwrap();
-            } else {
-                // Try to find the config file in the $HOME/.config/sync-dotfiles directory first
-                let path = home::home_dir()
-                    .unwrap()
-                    .join(".config/sync-dotfiles/config.ron");
-
-                // If the config file is found in the $HOME/.config/sync-dotfiles directory
-                // Set the config path to the path of the config file
-                if fs::File::open(&path).is_ok() {
-                    println!("Found config file in $HOME/.config/sync-dotfiles directory");
-                    CONFIG_PATH = path.into_os_string().into_string().unwrap();
-                // If the config file is not found in the $HOME/.config/sync-dotfiles directory
-                // Try to find the config file in the current directory
-                } else {
-                    let local_config_path = PathBuf::from_str("config.ron")
-                        .unwrap()
-                        .into_os_string()
-                        .into_string()
-                        .unwrap();
-
-                    if fs::File::open(&local_config_path).is_ok() {
-                        println!("Found config file in current directory");
-                        CONFIG_PATH = local_config_path;
-                    } else {
-                        return Err(anyhow!("Failed to open config file, No config found!"));
-                    }
-                }
-            }
-
-            let file = fs::File::open(&CONFIG_PATH)
-                .context("Failed to open config file from current directory");
-
-            file?.read_to_string(&mut CONTENTS)?;
-
-            let config = Options::default()
-                .with_default_extension(Extensions::IMPLICIT_SOME)
-                .from_str(&CONTENTS)
-                .context("Failed to parse config file")?;
-
-            Ok(config)
+        // If the user has specified a config file path
+        if let Some(path) = filepath {
+            *CONFIG_PATH.lock().unwrap() = path.fix_path().unwrap_or_else(|| PathBuf::from(path));
         }
+
+        let file = fs::File::open(CONFIG_PATH.lock().unwrap().as_path())
+            .context("Failed to open config file from the current directory")?;
+
+        let config = Options::default()
+            .with_default_extension(Extensions::IMPLICIT_SOME)
+            .from_reader(file)
+            .context("Failed to parse config file")?;
+
+        Ok(config)
     }
 
     /// Fix the config file path if it is a relative path.
@@ -143,15 +127,16 @@ impl<'a> DotConfig<'a> {
 
         let config = to_string_pretty(self, ron_pretty).context("Failed to serialize config")?;
 
-        unsafe {
-            println!("Saving config file to {CONFIG_PATH:#?}");
+        println!(
+            "Saving config file to {:#?}",
+            CONFIG_PATH.lock().unwrap().display()
+        );
 
-            let mut file =
-                fs::File::create(&CONFIG_PATH).context("Failed to create config file")?;
+        let mut file = fs::File::create(CONFIG_PATH.lock().unwrap().as_path())
+            .context("Failed to create config file")?;
 
-            file.write_all(config.as_bytes())
-                .context("Failed to write to config file")?;
-        }
+        file.write_all(config.as_bytes())
+            .context("Failed to write to config file")?;
 
         Ok(())
     }
@@ -182,7 +167,7 @@ impl<'a> DotConfig<'a> {
                 dir.update_metadata().expect("Failed to update config hash");
 
                 // replace the config file with the latest version
-                dir.pull_config(self.dotconfigs_path)
+                dir.pull_config(&self.dotconfigs_path)
                     .expect("Failed to pull config");
             } else {
                 // if the config does not need to be updated, skip the config
@@ -199,7 +184,7 @@ impl<'a> DotConfig<'a> {
     pub fn force_pull_configs(&self) -> Result<()> {
         self.configs.par_iter().for_each(|dir| {
             println!("Force pulling {:#?}.", dir.name);
-            dir.pull_config(self.dotconfigs_path)
+            dir.pull_config(&self.dotconfigs_path)
                 .expect("Failed to force pull the config");
         });
 
@@ -231,7 +216,7 @@ impl<'a> DotConfig<'a> {
     pub fn force_push_configs(&self) -> Result<()> {
         self.configs.par_iter().for_each(|dir| {
             println!("Force pushing {:#?}.", dir.name);
-            dir.push_config(self.dotconfigs_path)
+            dir.push_config(&self.dotconfigs_path)
                 .expect("Failed to force push the config");
         });
 
@@ -264,7 +249,7 @@ impl<'a> DotConfig<'a> {
         let path = self
             .dotconfigs_path
             .fix_path()
-            .ok_or_else(|| PathBuf::from(self.dotconfigs_path))
+            .ok_or_else(|| PathBuf::from(&self.dotconfigs_path))
             .expect("Failed to fix path");
 
         println!("Cleaning all the configs inside {path:#?}");
@@ -296,10 +281,10 @@ impl<'a> DotConfig<'a> {
     /// Additionally checks if the config with the same name already exists.
     ///
     #[inline(always)]
-    pub fn add_config(&mut self, name: &'a str, path: &'a std::path::Path) -> Result<()> {
+    pub fn add_config(&mut self, name: &String, path: &std::path::Path) -> Result<()> {
         self.configs
             .par_iter()
-            .any(|dir| dir.name == name)
+            .any(|dir| &dir.name == name)
             .then(|| {
                 println!("Config with name {name:#?} already exists.");
                 std::process::exit(1);
@@ -313,7 +298,7 @@ impl<'a> DotConfig<'a> {
         }
 
         self.configs.push(Config::new(
-            name,
+            name.to_string(),
             path.to_string_lossy().to_string(),
             None,
             conf_type,
@@ -330,7 +315,7 @@ impl<'a> DotConfig<'a> {
 
 /// Display implementation for DotConfig
 /// This is useful when the user wants to print the DotConfig struct
-impl std::fmt::Display for DotConfig<'_> {
+impl std::fmt::Display for DotConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "DotConfig {{")?;
         writeln!(f, "    dotconfigs_path: {},", self.dotconfigs_path)?;
@@ -344,10 +329,10 @@ impl std::fmt::Display for DotConfig<'_> {
 }
 
 /// Default implementation for DotConfig
-impl Default for DotConfig<'_> {
+impl Default for DotConfig {
     fn default() -> Self {
         DotConfig {
-            dotconfigs_path: "~/dotfiles",
+            dotconfigs_path: String::from("~/dotfiles"),
             configs: vec![Config::default()],
         }
     }

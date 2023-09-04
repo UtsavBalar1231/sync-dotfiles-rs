@@ -3,9 +3,14 @@ use home::home_dir;
 use ron::{extensions::Extensions, ser::PrettyConfig};
 use std::path::PathBuf;
 
-/// Fix the path to make sure it is absolute and not relative
+/// A trait for fixing paths to ensure they are absolute and not relative
 /// For example, ~/Downloads will be converted to /home/username/Downloads
+///
+/// Also, /home/username1 will be converted to /home/username2, where username1
+/// can be the username of the some other user and username2 is the username of
+/// the current user.
 pub trait FixPath<T> {
+    /// Fix the path to be absolute and not relative.
     fn fix_path(&self) -> Option<PathBuf>;
 }
 
@@ -86,7 +91,33 @@ impl FixPath<&str> for &str {
     }
 }
 
-/// Copy the directory recursively
+/// Recursively copy a directory and its contents to another location.
+///
+/// This function copies a directory and its contents to another location.
+/// It is a recursive operation and can handle both directories and files.
+/// If the destination directory exists, it will be removed and recreated to
+/// ensure a clean copy.
+///
+/// # Arguments
+///
+/// * `from`: The source directory or file path to be copied.
+/// * `to`: The destination directory where the source will be copied to.
+///
+/// # Returns
+///
+/// Returns a `Result` indicating success or an error if the copy operation
+/// fails.
+///
+/// # Example
+///
+/// ```rust
+/// use sync_dotfiles_rs::utils::copy_dir;
+///
+/// match copy_dir("/path/to/source", "/path/to/destination") {
+///     Ok(()) => println!("Copy successful"),
+///     Err(err) => eprintln!("Error copying directory: {:?}", err),
+/// }
+/// ```
 pub fn copy_dir<T>(from: T, to: T) -> Result<()>
 where
     T: AsRef<std::path::Path>,
@@ -131,7 +162,28 @@ where
     Ok(())
 }
 
-/// Get pretty printter for ron format
+/// Get a pretty printer configuration for RON (Rusty Object Notation)
+/// serialization.
+///
+/// This function returns a configuration for pretty-printing RON data with a
+/// depth limit and specific extensions.
+///
+/// # Returns
+///
+/// Returns a `PrettyConfig` that can be used with the RON serialization.
+///
+/// # Example
+///
+/// ```rust
+/// use sync_dotfiles_rs::dotconfig::DotConfig;
+/// use sync_dotfiles_rs::utils::get_ron_formatter;
+/// use ron::ser::to_string_pretty;
+///
+/// let data = DotConfig::new();
+/// let pretty_config = get_ron_formatter();
+/// let ron_string = to_string_pretty(&data, pretty_config).expect("Failed to serialize data");
+/// println!("Pretty RON:\n{}", ron_string);
+/// ```
 pub fn get_ron_formatter() -> PrettyConfig {
     PrettyConfig::new()
         .depth_limit(2)

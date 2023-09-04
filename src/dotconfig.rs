@@ -10,31 +10,39 @@ use ron::{extensions::Extensions, ser::to_string_pretty, Options};
 use serde::{Deserialize, Serialize};
 use std::{fs, io::Write, path::PathBuf, sync::Mutex};
 
-/// Struct to store the contents of the config file (`config.ron`)
+/// Struct to store configuration data, including the path to the dotconfig
+/// directory and a list of configuration files.
 ///
-/// The contents of the config file is stored in a vector of Config structs.
-/// The path of the dotconfig directory is stored in a str slice.
-///
-/// This struct implements the Serialize and Deserialize traits from serde
-/// which are used to serialize and deserialize the struct to and from a string.
+/// The `DotConfig` struct is used to manage configuration settings for
+/// syncing dotfiles.
+/// It includes the path to the dotconfig directory and a list of individual
+/// `Config` structs, each representing a configuration file.
 #[derive(Serialize, Deserialize)]
 pub struct DotConfig {
-    /// The path of the dotconfig directory will panic if the path is not a valid utf-8 string or empty
+    /// The path to the dotconfig directory.
+    ///
+    /// This path serves as the base directory for syncing configuration files.
     pub dotconfigs_path: String,
-    /// The vector of Config structs which holds the contents of the config file
+    /// A vector of `Config` structs, each representing an individual
+    /// configuration file.
     pub configs: Vec<Config>,
 }
 
 lazy_static! {
-/// To store the path of the config file for use in other functions.
-///
-/// The path can be changed by the user using the --config-path flag.
-/// Initially, the path is set to the path of the config file in the $HOME/.config/sync-dotfiles directory.
-/// If the config file is not found in the $HOME/.config/sync-dotfiles directory,
-/// the path is set to the path of the config file in the current directory.
+    /// Mutex-protected global configuration file path.
+    ///
+    /// This static variable stores the path to the configuration file and
+    /// allows it to be accessed and modified safely from multiple threads.
 static ref CONFIG_PATH: Mutex<PathBuf> = Mutex::new(get_default_config_path());
 }
 
+/// Function to determine the default configuration file path.
+///
+/// This function determines the default configuration file path based on
+/// the operating system.
+/// If the config file is not found in the ${HOME}/.config/sync-dotfiles
+/// directory, it will try to find the config file in the current directory.
+/// Otherwise, it will return an empty path.
 fn get_default_config_path() -> PathBuf {
     if let Some(home_dir) = home::home_dir() {
         // Try to find the config file in the ${HOME}/.sync-dotfiles.ron
@@ -70,17 +78,32 @@ fn get_default_config_path() -> PathBuf {
 }
 
 impl DotConfig {
-    #[inline(always)]
-    /// Parses the dotconfig file and returns a DotConfig structure.
+    /// Parses the dotconfig file and returns a `DotConfig` structure.
     ///
-    /// The dotconfig file is the config file which contains the list of all the config files to be synced.
-    /// It is a RON file (`config.ron`) which is a human readable version of the RUST data serialization format.
+    /// The dotconfig file is the configuration file that contains the list of
+    /// all the configuration files to be synced.
+    /// It is a RON file (`config.ron`), which is a human-readable version of
+    /// the Rust data serialization format.
     ///
-    /// The config file location can be specified by the user using the --cpath or -c flag.
+    /// The config file location can be specified by the user using the
+    /// `--config-path` or `-c` flag.
+    ///
     /// If the config file location is not specified by the user,
-    /// the config file is searched in the $HOME/.config/sync-dotfiles directory.
-    /// Else if the config file is not found in the $HOME/.config/sync-dotfiles directory,
+    /// the config file is searched in the `${HOME}/.config/sync-dotfiles`
+    /// directory.
+    /// If the config file is not found in the `${HOME/.config/sync-dotfiles`
+    /// directory,
     /// the config file is searched in the current directory.
+    ///
+    /// # Arguments
+    ///
+    /// * `filepath` - An optional reference to a String representing the path
+    /// to the config file specified by the user.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a `DotConfig` struct if the parsing is successful,
+    /// or an error if parsing fails.
     pub fn parse_dotconfig(filepath: &Option<String>) -> Result<Self> {
         // If the user has specified a config file path
         if let Some(path) = filepath {
@@ -100,8 +123,15 @@ impl DotConfig {
 
     /// Fix the config file path if it is a relative path.
     /// Also fix the wrong username in the config file path if it is present.
-    /// This will be useful when the config file is shared between multiple users.
-    #[inline(always)]
+    ///
+    /// This function adjusts the configuration file paths to make them
+    /// valid and usable.
+    /// It ensures that relative paths are converted to absolute paths
+    /// and handles potential issues related to usernames in file paths.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error if any path adjustments fail.
     pub fn fixup_config(&mut self) -> Result<()> {
         self.configs.iter_mut().for_each(|config| {
             config.path = config
@@ -115,25 +145,28 @@ impl DotConfig {
         Ok(())
     }
 
-    /// Save the config files to local disk at the path either specified by the user or the default path.
+    /// Save the current configuration to a local file.
     ///
-    /// The default path is the path of the config file in the $HOME/.config/sync-dotfiles directory
-    /// If the config file is not found in the $HOME/.config/sync-dotfiles directory,
-    /// the default path is the path of the config file in the current directory.
+    /// This method serializes the `DotConfig` structure into a human-readable
+    /// RON (Rust Object Notation) format and writes it to the configuration
+    /// file specified in the `CONFIG_PATH` mutex.
     ///
-    #[inline(always)]
+    /// The configuration file contains information about the dotconfig
+    /// directory and the list of configuration files to sync.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error if any file operations fail.
     pub fn save_configs(&self) -> Result<()> {
         let ron_pretty = get_ron_formatter();
 
         let config = to_string_pretty(self, ron_pretty).context("Failed to serialize config")?;
 
-        println!(
-            "Saving config file to {:#?}",
-            CONFIG_PATH.lock().unwrap().display()
-        );
+        let config_path = CONFIG_PATH.lock().unwrap();
+        println!("Saving config file to {:#?}", config_path.display());
 
-        let mut file = fs::File::create(CONFIG_PATH.lock().unwrap().as_path())
-            .context("Failed to create config file")?;
+        let mut file =
+            fs::File::create(config_path.as_path()).context("Failed to create config file")?;
 
         file.write_all(config.as_bytes())
             .context("Failed to write to config file")?;
@@ -141,14 +174,18 @@ impl DotConfig {
         Ok(())
     }
 
-    /// Update all the configs mentioned in the config file.
+    /// Synchronize all configured files based on their metadata.
     ///
-    /// Start by iteratating through all the configs and check if the config needs to be updated.
-    /// If the config needs to be updated, update the config hash in the config file and
-    /// replace the config file with the latest version.
-    /// Else if the config does not need to be updated, skip the config
+    /// This method iterates through the list of configured files and checks
+    /// whether each file needs to be updated based on its metadata.
     ///
-    #[inline(always)]
+    /// If a configuration file requires an update, it updates the metadata
+    /// in the config file and replaces the file with the latest version from
+    /// the source specified in the `DotConfig` structure.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error if any synchronization operations fail.
     pub fn sync_configs(&mut self) -> Result<()> {
         // iterate through all the configs
         self.configs.iter_mut().for_each(|dir| {
@@ -178,9 +215,20 @@ impl DotConfig {
         Ok(())
     }
 
-    /// Force pull all the configs mentioned in the config file from the path specified by the user
-    /// Into the dotconfig (`config.ron`) file
-    #[inline(always)]
+    /// Forcefully pull the latest versions of all configured files from the
+    /// source.
+    ///
+    /// This method iterates through the list of configured files and pulls
+    /// the latest versions of each file from the source specified in the
+    /// `DotConfig` structure.
+    ///
+    /// It does not perform metadata checks and forcefully updates all
+    /// configured files.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error if any file operations
+    /// fail during the pull operation.
     pub fn force_pull_configs(&self) -> Result<()> {
         self.configs.par_iter().for_each(|dir| {
             println!("Force pulling {:#?}.", dir.name);
@@ -191,28 +239,19 @@ impl DotConfig {
         Ok(())
     }
 
-    /// Force push all the configs mentioned in the config file from the dotconfig directory,
-    /// To the user specified path for each config
+    /// Forcefully push all the configured files to their specified destinations.
     ///
-    /// ```text
-    /// # Example: config.ron
+    /// This method iterates through the list of configured files and
+    /// forcefully pushes each file to its specified destination path as
+    /// defined in the `DotConfig` structure.
     ///
-    /// #(implicit_some)
-    /// (
-    ///     dotconfigs_path: "/home/user/.dotconfig",
-    ///     configs: [
-    ///         (
-    ///             name: "nvim",
-    ///             path: "/home/user/.config/nvim",
-    ///         )
-    ///     ]
-    /// )
-    /// ```
+    /// It does not perform metadata checks and forcefully updates all
+    /// configured files, overwriting existing files if necessary.
     ///
-    /// During the force push, the config file will be pushed to the path specified by the user
-    /// i.e. /home/user/.config/nvim
+    /// # Returns
     ///
-    #[inline(always)]
+    /// A Result indicating success or an error if any file operations fail
+    /// during the push operation.
     pub fn force_push_configs(&self) -> Result<()> {
         self.configs.par_iter().for_each(|dir| {
             println!("Force pushing {:#?}.", dir.name);
@@ -223,12 +262,20 @@ impl DotConfig {
         Ok(())
     }
 
-    /// Remove metadata from the config file and return a new dotconfig.
+    /// Remove metadata from all configured files within the `DotConfig` structure.
     ///
-    /// This is useful when the user wants to update the config file with the latest version of the config files
-    /// without updating the hashes.
+    /// This method iterates through the list of configured files and removes
+    /// the metadata associated with each file. Specifically, it clears the
+    /// hash and configuration type information.
     ///
-    #[inline(always)]
+    /// This operation is useful when the user wants to update the
+    /// configuration files with the latest versions without updating
+    /// their hashes or types.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error if clearing the metadata fails
+    /// for any configured file.
     pub fn clean_metadata_from_configs(&mut self) -> Result<()> {
         self.configs.iter_mut().for_each(|dir| {
             dir.hash = None;
@@ -239,12 +286,21 @@ impl DotConfig {
         Ok(())
     }
 
-    /// Clean all the configs from dotconfig directory except the .git folder.
+    /// Clean all files and directories in the dotconfig directory except the
+    /// .git folder.
     ///
-    /// This is useful when the user wants to remove all the configs from the dotconfig directory for maintenance
-    /// or to remove all the configs from the dotconfig directory and add new configs.
+    /// This method recursively iterates over all files and directories within
+    /// the dotconfig directory (specified in `dotconfigs_path`). It deletes
+    /// all files and directories except for the `.git` folder,
+    /// which is typically used for version control.
     ///
-    #[inline(always)]
+    /// This operation is useful when the user wants to perform maintenance or
+    /// replace existing configurations in the dotconfig directory.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error if any file or directory
+    /// removal fails.
     pub fn clean_dotconfigs_dir(&self) -> Result<()> {
         let path = self
             .dotconfigs_path
@@ -275,12 +331,24 @@ impl DotConfig {
         Ok(())
     }
 
-    /// Adds a new config inside the config file and returns a new dotconfig.
+    /// Add a new configuration to the `DotConfig` structure.
     ///
-    /// This is useful when the user wants to add a new config to the config file.
-    /// Additionally checks if the config with the same name already exists.
+    /// This method adds a new configuration to the `DotConfig` structure.
+    /// It creates a new `Config` struct with the specified name and path and
+    /// appends it to the list of configurations. It also checks if a
+    /// configuration with the same name already exists to prevent duplicates.
     ///
-    #[inline(always)]
+    /// # Arguments
+    ///
+    /// * `name` - A reference to a String representing the name of the
+    /// new configuration.
+    /// * `path` - A reference to a Path representing the path of the
+    /// new configuration.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error if the addition fails due to
+    /// a duplicate name or other issues.
     pub fn add_config(&mut self, name: &String, path: &std::path::Path) -> Result<()> {
         self.configs
             .par_iter()
@@ -307,14 +375,35 @@ impl DotConfig {
         Ok(())
     }
 
+    /// Create a new `DotConfig` instance with default template.
+    ///
+    /// This method constructs a new `DotConfig` structure with default
+    /// settings. It initializes the `dotconfigs_path` with the default
+    /// dotfiles directory path and includes a single default
+    /// configuration in the `configs` vector.
+    ///
+    /// # Returns
+    ///
+    /// A `DotConfig` struct with default settings.
     /// Create a new dotconfig file with default template
-    pub fn get_new_config() -> Self {
+    pub fn new() -> Self {
         DotConfig::default()
     }
 }
 
-/// Display implementation for DotConfig
-/// This is useful when the user wants to print the DotConfig struct
+/// Display implementation for DotConfig.
+///
+/// This implementation allows you to print a human-readable representation
+/// of a `DotConfig` instance.
+///
+/// # Example
+///
+/// ```rust
+/// use sync_dotfiles_rs::dotconfig::DotConfig;
+///
+/// let dotconfig = DotConfig::new();
+/// println!("{}", dotconfig);
+/// ```
 impl std::fmt::Display for DotConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "DotConfig {{")?;
@@ -328,7 +417,10 @@ impl std::fmt::Display for DotConfig {
     }
 }
 
-/// Default implementation for DotConfig
+/// Default implementation for DotConfig.
+///
+/// This implementation creates a new `DotConfig` instance with default
+/// settings.
 impl Default for DotConfig {
     fn default() -> Self {
         DotConfig {

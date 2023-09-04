@@ -1,16 +1,16 @@
-use sync_dotfiles_rs::{
-    dotconfig::DotConfig,
-    utils::{self, FixPath},
-};
-mod args;
 use anyhow::{Context, Result};
-use args::{get_env_args, Commands::*};
 pub use ron::{
     extensions::Extensions,
     ser::{to_string_pretty, PrettyConfig},
     Options,
 };
 use std::{path::PathBuf, process::exit};
+use sync_dotfiles_rs::{
+    dotconfig::DotConfig,
+    utils::{self, FixPath},
+};
+mod args;
+use args::{get_env_args, Commands::*};
 
 fn main() -> Result<()> {
     let args = get_env_args();
@@ -111,7 +111,7 @@ fn main() -> Result<()> {
         PrintNew => {
             let config = Options::default()
                 .with_default_extension(Extensions::IMPLICIT_SOME)
-                .to_string_pretty(&DotConfig::get_new_config(), utils::get_ron_formatter())
+                .to_string_pretty(&DotConfig::new(), utils::get_ron_formatter())
                 .context("Failed to print the new config")?;
 
             println!("{config}");

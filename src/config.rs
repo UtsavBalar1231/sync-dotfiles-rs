@@ -8,25 +8,33 @@ use sha1::{Digest, Sha1};
 use std::{path::PathBuf, str::FromStr};
 use walkdir::WalkDir;
 
-/// Config struct for storing config metadata and syncing configs
+/// Config struct for storing config metadata and syncing configs.
+///
+/// The `Config` struct represents a configuration file or directory.
+/// It includes information such as the name, path, hash
+/// (used to check if the config has changed since the last sync),
+/// and the type of configuration (file or directory).
 ///
 /// # Example
-/// ```rust
-/// use sync_dotfiles_rs::config::Config;
 ///
-/// let config = Config::new("placeholder", String::from("~/placeholder"), None, None);
+/// ```rust
+/// use sync_dotfiles_rs::config::{Config, ConfType};
+///
+/// let config = Config::new(
+///     String::from("example-config"),
+///     String::from("/path/to/example-config"),
+///     None,
+///     Some(ConfType::File),
+/// );
 /// ```
-/// Provides methods to sync configs from the dotconfig directory to the home directory
-/// and vice versa. Also provides methods to check if the config has changed since the last
-/// time it was synced.
-
 #[derive(Serialize, Deserialize)]
 pub struct Config {
-    /// Name of the config (e.g. vimrc)
+    /// Name of the config (e.g., "vimrc")
     pub name: String,
-    /// Path to the config (e.g. ~/.vimrc)
+    /// Path to the config (e.g., "${HOME}/.vimrc")
     pub path: String,
-    /// Hash of the config (used to check if the config has changed since the last time it was synced)
+    /// Hash of the config
+    /// (used to check if the config has changed since the last sync)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hash: Option<String>,
     /// Config type (file or directory)
@@ -34,53 +42,109 @@ pub struct Config {
     pub conf_type: Option<ConfType>,
 }
 
-/// Struct for storing the config type, i.e. whether the config is a file or a directory
+/// Enum representing the type of a configuration, which can be either a
+/// file or a directory.
+///
+/// The `ConfType` enum is used to specify whether a configuration is a
+/// file or a directory.
+///
+/// # Variants
+///
+/// - `File`: Indicates that the configuration is a file.
+/// - `Dir`: Indicates that the configuration is a directory.
+///
+/// ## Equality Comparison
+///
+/// The `ConfType` enum implements the `PartialEq` and `Eq` traits,
+/// allowing you to compare instances for equality.
+///
+/// # Examples
+///
+/// ```rust
+/// use sync_dotfiles_rs::config::ConfType;
+///
+/// let file_type = ConfType::File;
+/// let dir_type = ConfType::Dir;
+///
+/// assert_eq!(file_type, ConfType::File);
+/// assert_eq!(dir_type, ConfType::Dir);
+/// ```
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ConfType {
-    /// Config is a file
+    /// Configuration is a file.
     File,
-    /// Config is a directory
+    /// Configuration is a directory.
     Dir,
 }
 
-/// ConfType can be compared using `==` for equality
+/// Equality Comparison for `ConfType`.
+///
+/// The `PartialEq` trait allows you to compare instances of the `ConfType`
+/// enum for equality.
+///
+/// # Examples
+///
+/// ```rust
+/// use sync_dotfiles_rs::config::ConfType;
+///
+/// let file_type = ConfType::File;
+/// let another_file_type = ConfType::File;
+/// let dir_type = ConfType::Dir;
+///
+/// assert_eq!(file_type, another_file_type);
+/// assert_ne!(file_type, dir_type);
+/// ```
+///
+/// ## Implementation Notes
+///
+/// - Two `ConfType` variants are considered equal if they are of the
+/// same variant (`File` or `Dir`).
 impl PartialEq for ConfType {
     fn eq(&self, other: &Self) -> bool {
         match self {
-            ConfType::File => match other {
-                ConfType::File => true,
-                ConfType::Dir => false,
-            },
-            ConfType::Dir => match other {
-                ConfType::File => false,
-                ConfType::Dir => true,
-            },
+            ConfType::File => matches!(other, ConfType::File),
+            ConfType::Dir => matches!(other, ConfType::Dir),
         }
     }
 }
 
-/// ConfType can be compared using `==` for equality
+/// Equality Comparison for `ConfType`.
+///
+/// The `Eq` trait allows you to compare instances of the
+/// `ConfType` enum for equality.
+///
+/// # Examples
+///
+/// ```rust
+/// use sync_dotfiles_rs::config::ConfType;
+///
+/// let file_type = ConfType::File;
+/// let another_file_type = ConfType::File;
+/// let dir_type = ConfType::Dir;
+///
+/// assert_eq!(file_type, another_file_type);
+/// assert_ne!(file_type, dir_type);
+/// ```
+///
+/// ## Implementation Notes
+///
+/// - Two `ConfType` variants are considered equal if they are of the same
+/// variant (`File` or `Dir`).
 impl Eq for ConfType {}
 
 impl ConfType {
-    /// Check if the config is a file
+    /// Check if the config is a file.
     fn is_file(&self) -> bool {
-        if self.eq(&ConfType::File) {
-            return true;
-        }
-        false
+        matches!(self, ConfType::File)
     }
 
-    /// Check if the config is a directory
+    /// Check if the config is a directory.
     fn is_dir(&self) -> bool {
-        if self.eq(&ConfType::Dir) {
-            return true;
-        }
-        false
+        matches!(self, ConfType::Dir)
     }
 }
 
-/// Default implementation for Config
+/// Default implementation for `Config`.
 impl Default for Config {
     fn default() -> Self {
         Config {
@@ -93,8 +157,55 @@ impl Default for Config {
 }
 
 impl Config {
-    /// Create a new Config using the name, path, hash and config type
-    #[inline(always)]
+    /// Create a new `Config` instance with the specified attributes.
+    ///
+    /// This method allows you to create a new `Config` instance with a
+    /// given name, path, hash, and configuration type.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - A string representing the name of the configuration.
+    /// * `path` - A string representing the path to the configuration.
+    /// * `hash` - An optional string representing the hash of the
+    /// configuration (used for change detection).
+    /// * `conf_type` - An optional `ConfType` enum indicating the type of the
+    /// configuration (file or directory).
+    ///
+    /// # Returns
+    ///
+    /// A new `Config` instance.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sync_dotfiles_rs::config::{Config, ConfType};
+    ///
+    /// let config = Config::new(
+    ///     String::from("vimrc"),
+    ///     String::from("~/.vimrc"),
+    ///     Some(String::from("abcd1234")),
+    ///     Some(ConfType::File),
+    /// );
+    /// ```
+    ///
+    /// In this example, a new `Config` instance is created with a name
+    /// "vimrc," a path "~/.vimrc, "a hash "abcd1234," and a configuration
+    /// type "File."
+    ///
+    /// ```rust
+    /// use sync_dotfiles_rs::config::Config;
+    ///
+    /// let config = Config::new(
+    ///     String::from("example"),
+    ///     String::from("~/example.conf"),
+    ///     None,
+    ///     None,
+    /// );
+    /// ```
+    ///
+    /// In this example, a new `Config` instance is created with a name
+    /// "example" and a path "~/example.conf" without specifying a hash or
+    /// configuration type.
     pub fn new(
         name: String,
         path: String,
@@ -109,8 +220,37 @@ impl Config {
         }
     }
 
-    /// Check if config path exists
-    #[inline(always)]
+    /// Check if the config path exists.
+    ///
+    /// This method checks whether the file or directory specified by the
+    /// `path` field of the `Config` instance exists.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the path exists, `false` otherwise.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use sync_dotfiles_rs::config::Config;
+    ///
+    /// let non_existant_config = Config::new(
+    ///     String::from("example"),
+    ///     String::from("~/example.conf"),
+    ///     None,
+    ///     None,
+    /// );
+    ///
+    /// let existant_config = Config::new(
+    ///     String::from("config.ron"),
+    ///     format!("{}/examples/config.ron", env!("CARGO_MANIFEST_DIR")),
+    ///     None,
+    ///     None,
+    /// );
+    ///
+    /// assert!(!non_existant_config.path_exists());
+    /// assert!(existant_config.path_exists());
+    /// ```
     pub fn path_exists(&self) -> bool {
         let path = self
             .path
@@ -120,8 +260,34 @@ impl Config {
         path.exists()
     }
 
-    /// Hashes the metadata of a file or directory and returns the hash as a string
-    #[inline(always)]
+    /// Calculate the hash of the metadata for a file or directory.
+    ///
+    /// This method computes the hash of the metadata
+    /// (e.g., file content or directory structure) for the configuration file
+    /// or directory specified by the `path` field of the `Config` instance.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the hash as a string if successful,
+    /// or an error if the operation fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use sync_dotfiles_rs::config::Config;
+    ///
+    /// let config = Config::new(
+    ///     String::from("config.ron"),
+    ///     format!("{}/examples/config.ron", env!("CARGO_MANIFEST_DIR")),
+    ///     None,
+    ///     None,
+    /// );
+    ///
+    /// match config.metadata_digest() {
+    ///     Ok(hash) => println!("Metadata digest: {}", hash),
+    ///     Err(err) => eprintln!("Error calculating metadata digest: {:?}", err),
+    /// }
+    /// ```
     pub fn metadata_digest(&self) -> Result<String> {
         let path = self
             .path
@@ -145,11 +311,32 @@ impl Config {
         Ok(hash)
     }
 
-    /// Check if the path has changed since the last time it was hashed
-    /// This is required because the hash is not stored in the dotconfig file,
-    /// Also required because the config type is not stored in the dotconfig file
-    /// and is only used to determine if the config is a file or a directory during syncing
-    #[inline(always)]
+    /// Check if the configuration needs metadata update.
+    ///
+    /// This method checks whether the configuration needs an update of its
+    /// metadata, such as hash and configuration type. It is required because
+    /// the hash and configuration type are not stored in the dotconfig file
+    /// and are used to determine if the configuration has changed since the
+    /// last sync.
+    ///
+    /// # Returns
+    ///
+    /// `true` if metadata update is required, `false` otherwise.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use sync_dotfiles_rs::config::{Config, ConfType};
+    ///
+    /// let mut config = Config::new(
+    ///     String::from("config.ron"),
+    ///     format!("{}/examples/config.ron", env!("CARGO_MANIFEST_DIR")),
+    ///     None,
+    ///     Some(ConfType::File),
+    /// );
+    ///
+    /// assert!(config.check_update_metadata_required());
+    /// ```
     pub fn check_update_metadata_required(&self) -> bool {
         match self.hash.as_ref() {
             Some(hash) => {
@@ -167,10 +354,14 @@ impl Config {
         }
     }
 
-    /// Update hash of the config to the current hash
-    /// This is required because the hash is not stored in the dotconfig file
-    /// and is only used to determine if the config has changed since the last time it was synced
-    #[inline(always)]
+    /// Update the hash of the configuration's metadata.
+    ///
+    /// This method calculates the new hash of the configuration's metadata
+    /// and updates the `hash` field of the `Config` instance.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure of the operation.
     pub fn update_config_hash(&mut self) -> Result<()> {
         // calculate the new hash of the config
         let new_hash = self
@@ -181,10 +372,37 @@ impl Config {
         Ok(())
     }
 
-    /// Update the config type of the config
-    /// This is required because the config type is not stored in the dotconfig file
-    /// and is only used to determine if the config is a file or a directory
-    #[inline(always)]
+    /// Update the configuration type of the `Config`.
+    ///
+    /// This method checks whether the configuration specified by the
+    /// `Config` instance is a file or a directory.
+    /// If the `conf_type` field is already set, it skips the check.
+    /// Otherwise, it determines the type based on the path.
+    ///
+    /// If the path does not exist, it prints an error message and
+    /// returns without modifying the `Config`.
+    ///
+    /// # Errors
+    ///
+    /// This method may return an error if it encounters issues accessing the
+    /// file system or determining the config type.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sync_dotfiles_rs::config::{Config, ConfType};
+    ///
+    /// let mut config = Config::new(
+    ///     String::from("config.ron"),
+    ///     format!("{}/examples/config.ron", env!("CARGO_MANIFEST_DIR")),
+    ///     None,
+    ///     None,
+    /// );
+    ///
+    /// // Update the configuration type.
+    /// config.update_config_type().expect("Failed to update config type");
+    ///
+    /// assert_eq!(config.conf_type, Some(ConfType::File));
     pub fn update_config_type(&mut self) -> Result<()> {
         let path = self
             .path
@@ -210,8 +428,37 @@ impl Config {
         Ok(())
     }
 
-    /// Update metadata of the config
-    #[inline(always)]
+    /// Update the metadata of the `Config`.
+    ///
+    /// This method updates the hash of the configuration and its type by
+    /// calling `update_config_hash` and `update_config_type`.
+    ///
+    /// # Errors
+    ///
+    /// This method may return errors if any of the sub-methods
+    /// (`update_config_hash` or `update_config_type`) encounter issues.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sync_dotfiles_rs::config::Config;
+    ///
+    /// let mut config = Config::new(
+    ///     String::from("config.ron"),
+    ///     format!("{}/examples/config.ron", env!("CARGO_MANIFEST_DIR")),
+    ///     None,
+    ///     None,
+    /// );
+    ///
+    /// // Update the metadata of the configuration.
+    /// config.update_metadata().expect("Failed to update metadata");
+    /// ```
+    ///
+    /// ## Implementation Notes
+    ///
+    /// - This method updates the `hash` and `conf_type` fields in the `Config`
+    /// instance.
+    /// - It relies on the `update_config_hash` and `update_config_type` methods.
     pub fn update_metadata(&mut self) -> Result<()> {
         self.update_config_hash()?;
         self.update_config_type()?;
@@ -219,8 +466,49 @@ impl Config {
         Ok(())
     }
 
-    /// Sync configs from the dotconfig directory to the home directory
-    #[inline(always)]
+    /// Sync the configuration from the dotconfig directory to the home
+    /// directory or expected configuration directory.
+    ///
+    /// This method copies the configuration files or directory from the
+    /// dotconfig directory to the specified destination.
+    ///
+    /// If the `conf_type` field is set to `ConfType::File`, it copies the
+    /// file directly. If set to `ConfType::Dir`, it copies the entire
+    /// directory and its contents.
+    ///
+    /// # Arguments
+    ///
+    /// - `path`: A string specifying the destination path where the
+    /// configuration should be synced.
+    ///
+    /// # Errors
+    ///
+    /// This method may return errors if it encounters issues during the
+    /// file copying process.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sync_dotfiles_rs::config::Config;
+    ///
+    /// let config = Config::new(
+    ///     String::from("config.ron"),
+    ///     format!("{}/examples/config.ron", env!("CARGO_MANIFEST_DIR")),
+    ///     None,
+    ///     None,
+    /// );
+    ///
+    /// // Sync the configuration to the specified path.
+    /// config.pull_config(&format!("{}/examples", env!("CARGO_MANIFEST_DIR")))
+    ///         .expect("Failed to pull config");
+    /// ```
+    ///
+    /// ## Implementation Notes
+    ///
+    /// - This method determines whether to copy a file or a directory based
+    /// on the `conf_type` field.
+    /// - It relies on the `copy_config_directory` method for directory
+    /// copying.
     pub fn pull_config(&self, path: &String) -> Result<()> {
         let dotconfigs_path = path
             .fix_path()
@@ -297,10 +585,22 @@ impl Config {
         Ok(())
     }
 
-    /// Helper function to copy the config directory
-    /// This is only used by the push_config function
-    /// It copies the config directory from the dotconfigs directory to the home directory or
-    /// expected config directory
+    /// Copies the contents of a configuration directory from the dotconfig
+    /// directory to the home directory.
+    ///
+    /// This function is used by the push_config function to perform the
+    /// actual copy operation.
+    ///
+    /// # Arguments
+    ///
+    /// * `config_path`: The path to the configuration directory in the
+    /// home directory.
+    /// * `dotconfigs_path`: The path to the dotconfig directory.
+    ///
+    /// # Returns
+    ///
+    /// Returns a Result indicating success or an error if the copy operation
+    /// fails.
     fn copy_config_directory(
         config_path: &PathBuf,
         dotconfigs_path: &std::path::Path,
@@ -349,9 +649,67 @@ impl Config {
         Ok(())
     }
 
-    /// Sync configs from the dotconfig directory to the home directory
-    /// This works by copying the config directory from the dotconfig directory to the home
-    /// directory or expected config directory
+    /// Push the configuration from the home directory or expected
+    /// configuration directory to the dotconfig directory.
+    ///
+    /// This method copies the configuration files or directory from the source
+    /// to the dotconfig directory.
+    ///
+    /// If the `conf_type` field is set to `ConfType::File`, it copies the file
+    /// directly. If set to `ConfType::Dir`, it copies the entire directory and
+    /// its contents.
+    ///
+    /// # Arguments
+    ///
+    /// - `path`: A string specifying the destination path in the dotconfig
+    /// directory where the configuration should be pushed.
+    ///
+    /// # Errors
+    ///
+    /// This method may return errors if it encounters issues during the file
+    /// copying process or if the specified paths do not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sync_dotfiles_rs::config::{Config, ConfType};
+    /// use std::io::{Read, Write};
+    ///
+    /// let path = std::path::PathBuf::from(format!(
+    ///     "{}/examples/config.ron", env!("CARGO_MANIFEST_DIR")
+    /// ));
+    ///
+    /// let mut file = std::fs::File::open(&path).expect("Failed to open file");
+    ///
+    /// let mut content = String::new();
+    ///
+    /// file.read_to_string(&mut content).expect("Failed to read file");
+    ///
+    /// let config = Config::new(
+    ///     String::from("config.ron"),
+    ///     format!("{}/examples/config.ron", env!("CARGO_MANIFEST_DIR")),
+    ///     None,
+    ///     Some(ConfType::File),
+    /// );
+    ///
+    /// assert!(config.path_exists());
+    ///
+    /// // Push the configuration to the dotconfig directory.
+    /// config.push_config(&format!("{}/examples", env!("CARGO_MANIFEST_DIR")))
+    ///             .expect("Failed to push config");
+    ///
+    /// let mut file =
+    ///     std::fs::File::create(path).expect("Failed to create config file");
+    ///
+    /// file.write_all(content.as_bytes()).expect("Failed to write file");
+    /// ```
+    ///
+    /// ## Implementation Notes
+    ///
+    /// - This method determines whether to copy a file or a directory based on
+    /// the `conf_type` field.
+    /// - It relies on the `copy_config_directory` method for directory
+    /// copying.
     pub fn push_config(&self, path: &str) -> Result<()> {
         let dotconfigs_path = path
             .fix_path()
@@ -402,6 +760,32 @@ impl Config {
     }
 }
 
+/// Implements the Display trait for the Config struct.
+///
+/// This allows a Config instance to be formatted as a string when using the
+/// format! macro
+/// or the println! macro, providing a human-readable representation of the
+/// Config instance.
+///
+/// # Example
+///
+/// ```rust
+/// use sync_dotfiles_rs::config::{Config, ConfType};
+///
+/// let config = Config::new(
+///     String::from("config.ron"),
+///     format!("{}/examples/config.ron", env!("CARGO_MANIFEST_DIR")),
+///     Some(String::from("abcd1234")),
+///     Some(ConfType::File),
+/// );
+///
+/// println!("Config details: {}", config);
+/// ```
+///
+/// Output:
+/// ```text
+/// Config details: { name: config, path: <path>/config.ron, conf_type: Some(ConfType::File) }
+/// ```
 impl std::fmt::Display for Config {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{ ")?;

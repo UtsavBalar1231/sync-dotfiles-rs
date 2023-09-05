@@ -57,10 +57,7 @@ fn get_default_config_path() -> PathBuf {
         // Try to find the config file in the ${HOME}/.config/sync-dotfiles directory
         let path = home_dir.join(".config/sync-dotfiles/config.ron");
         if fs::File::open(&path).is_ok() {
-            println!(
-                "Found config file in {}/.config/sync-dotfiles directory",
-                home_dir.display()
-            );
+            println!("Found config file at {}", path.display());
             return path;
         }
     }

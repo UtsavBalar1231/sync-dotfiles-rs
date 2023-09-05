@@ -51,6 +51,10 @@ pub enum Commands {
     /// Clean all the config directories from your specified dotconfigs path
     #[clap(short_flag = 'C')]
     Clean,
+
+    /// Edit the sync-dotfiles config file
+    #[clap(short_flag = 'e')]
+    Edit,
 }
 
 #[derive(Args)]

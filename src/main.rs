@@ -128,5 +128,12 @@ fn main() -> Result<()> {
 
             exit(0);
         }
+
+        Edit => {
+            dotconfig
+                .edit_config_file()
+                .context("Failed to edit config file")?;
+            exit(0);
+        }
     }
 }

@@ -386,6 +386,27 @@ impl DotConfig {
     pub fn new() -> Self {
         DotConfig::default()
     }
+
+    /// Edit the `sync-dotfiles` configuration file.
+    ///
+    /// This method opens the `sync-dotfiles` configuration file in the
+    /// editor specified by the `EDITOR` environment variable.
+    /// If the `EDITOR` environment variable is not set, it will open the
+    /// `sync-dotfiles` configuration file in the vim editor.
+    ///
+    /// # Returns
+    ///
+    /// A Result indicating success or an error if the editor fails to open.
+    pub fn edit_config_file(&self) -> Result<()> {
+        let editor: std::ffi::OsString = std::env::var_os("EDITOR").unwrap_or("vim".into());
+
+        std::process::Command::new(editor)
+            .arg(CONFIG_PATH.lock().unwrap().as_path())
+            .status()
+            .context("Failed to open the editor")?;
+
+        Ok(())
+    }
 }
 
 /// Display implementation for DotConfig.

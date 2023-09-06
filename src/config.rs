@@ -145,6 +145,22 @@ impl ConfType {
 }
 
 /// Default implementation for `Config`.
+///
+/// The `Config` struct implements the `Default` trait, allowing you to
+/// create a new `Config` instance with default values.
+///
+/// # Examples
+///
+/// ```rust
+/// use sync_dotfiles_rs::config::Config;
+///
+/// let config = Config::default();
+///
+/// assert_eq!(config.name, String::from("placeholder"));
+/// assert_eq!(config.path, String::from("~/placeholder"));
+/// assert_eq!(config.hash, None);
+/// assert_eq!(config.conf_type, None);
+/// ```
 impl Default for Config {
     fn default() -> Self {
         Config {

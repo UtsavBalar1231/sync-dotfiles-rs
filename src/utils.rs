@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use home::home_dir;
 use ron::{extensions::Extensions, ser::PrettyConfig};
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 
 /// A trait for fixing paths to ensure they are absolute and not relative
 /// For example, ~/Downloads will be converted to /home/username/Downloads
@@ -14,34 +14,113 @@ pub trait FixPath<T> {
     fn fix_path(&self) -> Option<PathBuf>;
 }
 
-/// Fix the path to be absolute and not relative for PathBuf type
+/// Fix the path to be absolute and not relative for type `std::path::PathBuf`
+///
+/// # Examples
+///
+/// ```rust
+/// use sync_dotfiles_rs::utils::FixPath;
+/// use std::path::PathBuf;
+///
+/// // Exising user path
+/// let path = PathBuf::from(format!("{}", env!("HOME"))).fix_path();
+/// assert!(path.is_none());
+///
+/// // Non-existing user path
+/// let path = PathBuf::from("/home/username1/Downloads").fix_path();
+/// assert!(path.is_some());
+/// ```
+///
+/// ```rust
+/// use sync_dotfiles_rs::utils::FixPath;
+/// use std::path::PathBuf;
+///
+/// // Convert ~/ to /home/username
+/// let path = PathBuf::from("~/").fix_path();
+/// assert!(path.is_some());
+/// assert_eq!(format!("{}/", env!("HOME")), path.unwrap().to_str().unwrap());
+/// ```
+///
+/// ```rust
+/// use sync_dotfiles_rs::utils::FixPath;
+/// use std::path::PathBuf;
+///
+/// // Convert ./examples/local_configs_dir/folder_3 to
+/// // /home/username1/${cwd}/examples/local_configs_dir/folder_3
+/// let path = PathBuf::from("./examples/local_configs_dir/folder_3").fix_path();
+/// assert!(path.is_some());
+/// ```
 impl FixPath<PathBuf> for PathBuf {
     /// Fix the path to be absolute and not relative for PathBuf type
     fn fix_path(&self) -> Option<PathBuf> {
         let home_dir = home_dir().expect("Failed to get home directory");
 
-        // Check if the path starts with ~/ and replace it with the home directory
-        if self.starts_with("~") {
+        // Check if the path starts with ./ replace it with the current directory
+        // and if it starts with ~/ then replace it with the home directory
+        if self.starts_with("./") {
+            return Some(
+                self.strip_prefix("./")
+                    .map(|p| env::current_dir().unwrap().join(p))
+                    .expect("Failed to strip prefix"),
+            );
+        } else if self.starts_with("~") {
             return Some(
                 self.strip_prefix("~")
                     .map(|p| home_dir.join(p))
                     .expect("Failed to strip prefix"),
             );
         } else if self.starts_with("/home/") {
-            // Remove the /home/username/ part from the path
-            return Some(
-                self.strip_prefix("/home/")
-                    .map(|p| p.strip_prefix(p.components().next().unwrap()).unwrap())
-                    .expect("Failed to strip prefix")
-                    .into(),
-            );
+            // check if the username is the same as the current user
+            if self.components().nth(2).unwrap().as_os_str()
+                != home_dir.components().nth(2).unwrap().as_os_str()
+            {
+                // Remove the /home/username/ part from the path
+                return Some(
+                    self.strip_prefix("/home/")
+                        .map(|p| p.strip_prefix(p.components().next().unwrap()).unwrap())
+                        .expect("Failed to strip prefix")
+                        .into(),
+                );
+            }
         }
 
         None
     }
 }
 
-/// Fix the path to be absolute and not relative for string type
+/// Fix the path to be absolute and not relative for type `std::string::String`
+///
+/// # Examples
+///
+/// ```rust
+/// use sync_dotfiles_rs::utils::FixPath;
+///
+/// // Exising user path
+/// let path = format!("{}", env!("HOME")).fix_path();
+/// assert!(path.is_none());
+///
+/// // Non-existing user path
+/// let path = String::from("/home/username1/Downloads").fix_path();
+/// assert!(path.is_some());
+/// ```
+///
+/// ```rust
+/// use sync_dotfiles_rs::utils::FixPath;
+///
+/// // Convert ~/ to /home/username
+/// let path = String::from("~/").fix_path();
+/// assert!(path.is_some());
+/// assert_eq!(format!("{}/", env!("HOME")), path.unwrap().to_str().unwrap());
+/// ```
+///
+/// ```rust
+/// use sync_dotfiles_rs::utils::FixPath;
+///
+/// // Convert ./examples/local_configs_dir/folder_3 to
+/// // /home/username1/${cwd}/examples/local_configs_dir/folder_3
+/// let path = String::from("./examples/local_configs_dir/folder_3").fix_path();
+/// assert!(path.is_some());
+/// ```
 impl FixPath<String> for String {
     /// Fix the path to be absolute and not relative for string slice type
     fn fix_path(&self) -> Option<PathBuf> {
@@ -51,22 +130,64 @@ impl FixPath<String> for String {
 
         let home_dir = home_dir().expect("Failed to get home directory");
 
-        // Check if the path starts with ~/ and replace it with the home directory
-        if self.starts_with('~') {
+        // Check if the path starts with ./ replace it with the current directory
+        // and if it starts with ~/ then replace it with the home directory
+        if self.starts_with("./") {
+            return Some(
+                self.strip_prefix("./")
+                    .map(|p| env::current_dir().unwrap().join(p))
+                    .expect("Failed to strip prefix"),
+            );
+        } else if self.starts_with('~') {
             return Some(self.replace('~', home_dir.to_str().unwrap()).into());
         } else if self.starts_with("/home/") {
-            // Remove the /home/username/ part from the path
-            let mut path = self.strip_prefix("/home/").unwrap().to_string();
-            // Find the next '/' after the first '/' and remove the part before it
-            path.drain(..path.find('/').unwrap() + 1);
+            // check if the username is the same as the current user
+            if !self.contains(home_dir.to_str().unwrap()) {
+                // Remove the /home/username/ part from the path
+                let mut path = self.strip_prefix("/home/").unwrap().to_string();
+                // Find the next '/' after the first '/' and remove the part before it
+                path.drain(..path.find('/').unwrap() + 1);
 
-            return Some(home_dir.join(path));
+                return Some(home_dir.join(path));
+            }
         }
         None
     }
 }
 
-/// Fix the path to be absolute and not relative for string slice type
+/// Fix the path to be absolute and not relative for type `std::string::String`
+///
+/// # Examples
+///
+/// ```rust
+/// use sync_dotfiles_rs::utils::FixPath;
+///
+/// // Exising user path
+/// let path = format!("{}", env!("HOME")).as_str().fix_path();
+/// assert!(path.is_none());
+///
+/// // Non-existing user path
+/// let path = "/home/username1/Downloads".fix_path();
+/// assert!(path.is_some());
+/// ```
+///
+/// ```rust
+/// use sync_dotfiles_rs::utils::FixPath;
+///
+/// // Convert ~/ to /home/username
+/// let path = "~/".fix_path();
+/// assert!(path.is_some());
+/// assert_eq!(format!("{}/", env!("HOME")), path.unwrap().to_str().unwrap());
+/// ```
+///
+/// ```rust
+/// use sync_dotfiles_rs::utils::FixPath;
+///
+/// // Convert ./examples/local_configs_dir/folder_3 to
+/// // /home/username1/${cwd}/examples/local_configs_dir/folder_3
+/// let path = "./examples/local_configs_dir/folder_3".fix_path();
+/// assert!(path.is_some());
+/// ```
 impl FixPath<&str> for &str {
     /// Fix the path to be absolute and not relative for string slice type
     fn fix_path(&self) -> Option<PathBuf> {
@@ -76,10 +197,17 @@ impl FixPath<&str> for &str {
 
         let home_dir = home_dir().expect("Failed to get home directory");
 
-        // Check if the path starts with ~/ and replace it with the home directory
-        if self.starts_with('~') {
+        // Check if the path starts with ./ replace it with the current directory
+        // and if it starts with ~/ then replace it with the home directory
+        if self.starts_with("./") {
+            return Some(
+                self.strip_prefix("./")
+                    .map(|p| env::current_dir().unwrap().join(p))
+                    .expect("Failed to strip prefix"),
+            );
+        } else if self.starts_with('~') {
             return Some(self.replace('~', home_dir.to_str().unwrap()).into());
-        } else if self.starts_with("/home/") {
+        } else if self.starts_with("/home/") && !self.contains(home_dir.to_str().unwrap()) {
             // Remove the /home/username/ part from the path
             let mut path = self.strip_prefix("/home/").unwrap().to_string();
             // Find the next '/' after the first '/' and remove the part before it
@@ -125,10 +253,7 @@ where
     let from = from.as_ref();
 
     if !from.exists() {
-        return Err(anyhow!(format!(
-            "Path does not exist or access denied!: {:#?}",
-            from
-        )));
+        return Err(anyhow!(format!("Path does not exist: {:#?}", from)));
     }
 
     if to.as_ref().exists() {
@@ -151,6 +276,9 @@ where
                                 "File already exists, skipping: {:#?}",
                                 entry.path().display()
                             )
+                        }
+                        std::io::ErrorKind::PermissionDenied => {
+                            println!("Permission denied: {:#?}", entry.path().display())
                         }
                         _ => panic!("Error copying file: {e}"),
                     }

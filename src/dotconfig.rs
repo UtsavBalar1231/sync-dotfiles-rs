@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 use rayon::prelude::*;
 use ron::{extensions::Extensions, ser::to_string_pretty, Options};
 use serde::{Deserialize, Serialize};
-use std::{fs, io::Write, path::PathBuf, sync::Mutex};
+use std::{fmt, fs, io::Write, path::PathBuf, process, sync::Mutex};
 
 /// Struct to store configuration data, including the path to the dotconfig
 /// directory and a list of configuration files.
@@ -44,22 +44,21 @@ static ref CONFIG_PATH: Mutex<PathBuf> = Mutex::new(get_default_config_path());
 /// directory, it will try to find the config file in the current directory.
 /// Otherwise, it will return an empty path.
 fn get_default_config_path() -> PathBuf {
-    if let Some(home_dir) = home::home_dir() {
-        // Try to find the config file in the ${HOME}/.sync-dotfiles.ron
-        let path = home_dir.join(".sync-dotfiles.ron");
-        if fs::File::open(&path).is_ok() {
-            println!(
-                "Found config file: {}/.sync-dotfiles.ron",
-                home_dir.display()
-            );
-            return path;
-        }
-        // Try to find the config file in the ${HOME}/.config/sync-dotfiles directory
-        let path = home_dir.join(".config/sync-dotfiles/config.ron");
-        if fs::File::open(&path).is_ok() {
-            println!("Found config file at {}", path.display());
-            return path;
-        }
+    let home_dir = PathBuf::from(env!("HOME"));
+    // Try to find the config file in the ${HOME}/.sync-dotfiles.ron
+    let path = home_dir.join(".sync-dotfiles.ron");
+    if fs::File::open(&path).is_ok() {
+        println!(
+            "Found config file: {}/.sync-dotfiles.ron",
+            home_dir.display()
+        );
+        return path;
+    }
+    // Try to find the config file in the ${HOME}/.config/sync-dotfiles directory
+    let path = home_dir.join(".config/sync-dotfiles/config.ron");
+    if fs::File::open(&path).is_ok() {
+        println!("Found config file at {}", path.display());
+        return path;
     }
 
     // If the config file is not found in the $HOME/.config/sync-dotfiles directory
@@ -104,7 +103,7 @@ impl DotConfig {
     pub fn parse_dotconfig(filepath: &Option<String>) -> Result<Self> {
         // If the user has specified a config file path
         if let Some(path) = filepath {
-            *CONFIG_PATH.lock().unwrap() = path.fix_path().unwrap_or_else(|| PathBuf::from(path));
+            *CONFIG_PATH.lock().unwrap() = path.fix_path().unwrap_or(PathBuf::from(path));
         }
 
         let file = fs::File::open(CONFIG_PATH.lock().unwrap().as_path())
@@ -134,7 +133,7 @@ impl DotConfig {
             config.path = config
                 .path
                 .fix_path()
-                .unwrap_or_else(|| PathBuf::from(&config.path))
+                .unwrap_or(PathBuf::from(&config.path))
                 .to_string_lossy()
                 .to_string();
         });
@@ -346,7 +345,7 @@ impl DotConfig {
     ///
     /// A Result indicating success or an error if the addition fails due to
     /// a duplicate name or other issues.
-    pub fn add_config(&mut self, name: &String, path: &std::path::Path) -> Result<()> {
+    pub fn add_config(&mut self, name: &String, path: PathBuf) -> Result<()> {
         self.configs
             .par_iter()
             .any(|dir| &dir.name == name)
@@ -398,9 +397,9 @@ impl DotConfig {
     ///
     /// A Result indicating success or an error if the editor fails to open.
     pub fn edit_config_file(&self) -> Result<()> {
-        let editor: std::ffi::OsString = std::env::var_os("EDITOR").unwrap_or("vim".into());
+        let editor: String = std::env::var("EDITOR").unwrap_or("vim".into());
 
-        std::process::Command::new(editor)
+        process::Command::new(editor)
             .arg(CONFIG_PATH.lock().unwrap().as_path())
             .status()
             .context("Failed to open the editor")?;
@@ -422,8 +421,8 @@ impl DotConfig {
 /// let dotconfig = DotConfig::new();
 /// println!("{}", dotconfig);
 /// ```
-impl std::fmt::Display for DotConfig {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for DotConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "DotConfig {{")?;
         writeln!(f, "    dotconfigs_path: {},", self.dotconfigs_path)?;
         writeln!(f, "    configs: [")?;

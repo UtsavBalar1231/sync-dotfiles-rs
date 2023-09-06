@@ -2,10 +2,12 @@ use digest::DynDigest;
 use std::{
     fmt,
     fmt::Write,
-    io,
+    fs, io,
     io::Read,
+    marker,
     num::NonZeroUsize,
     path::{Path, PathBuf},
+    string, thread,
 };
 
 /// HashBox is a Box<[u8]> type that implements hexadecimal formatting and
@@ -29,7 +31,7 @@ impl fmt::LowerHex for HashBox {
 }
 
 /// Implement std::string::ToString for Box<[u8]> type
-impl std::string::ToString for HashBox {
+impl string::ToString for HashBox {
     fn to_string(&self) -> String {
         let mut hex_string = String::with_capacity(self.0.len() * 2);
         self.0.iter().for_each(|byte| {
@@ -107,7 +109,7 @@ where
     Hasher: DynDigest + Clone,
     P: AsRef<Path>,
 {
-    let mut file = std::fs::File::open(path)?;
+    let mut file = fs::File::open(path)?;
     let mut buf = [0u8; 4096];
 
     loop {
@@ -153,14 +155,14 @@ where
 /// ```
 pub fn get_files_hash<Hasher, P>(files: &[P], hash: &mut Hasher) -> Result<String, io::Error>
 where
-    P: AsRef<Path> + std::marker::Sync,
-    Hasher: DynDigest + std::marker::Send + Clone,
+    P: AsRef<Path> + marker::Sync,
+    Hasher: DynDigest + marker::Send + Clone,
 {
     if files.is_empty() {
         return Ok(String::new());
     }
 
-    let threads = std::thread::available_parallelism()
+    let threads = thread::available_parallelism()
         .unwrap_or(NonZeroUsize::MIN)
         .get();
 
@@ -204,21 +206,23 @@ where
 ///
 /// ```rust
 /// use sync_dotfiles_rs::hasher::get_complete_dir_hash;
+/// use std::path::PathBuf;
 /// use sha1::{Sha1, Digest};
 ///
 /// let mut hasher = Sha1::new();
-/// let dirs = vec!["/path/to/directory1", "/path/to/directory2"];
+/// let dir_path = PathBuf::from("/path/to/directory");
 ///
-/// match get_complete_dir_hash(&dirs, &mut hasher) {
+/// match get_complete_dir_hash(&dir_path, &mut hasher) {
 ///     Ok(hash) => println!("Combined directory files hash: {}", hash),
 ///     Err(err) => eprintln!("Error calculating combined directory files hash: {:?}", err),
 /// }
 /// ```
-pub fn get_complete_dir_hash<Hasher, P>(dirs: &[P], hash: &mut Hasher) -> Result<String, io::Error>
+pub fn get_complete_dir_hash<Hasher, P>(dir_path: P, hash: &mut Hasher) -> Result<String, io::Error>
 where
-    Hasher: DynDigest + Clone + std::marker::Send,
-    P: AsRef<Path> + std::marker::Sync,
+    Hasher: DynDigest + Clone + marker::Send,
+    P: AsRef<Path> + marker::Sync,
 {
+    let dirs = list_dir_files(dir_path);
     let mut paths: Vec<PathBuf> = vec![];
 
     dirs.iter()

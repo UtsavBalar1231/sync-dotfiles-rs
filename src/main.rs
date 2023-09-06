@@ -4,7 +4,7 @@ pub use ron::{
     ser::{to_string_pretty, PrettyConfig},
     Options,
 };
-use std::{path::PathBuf, process::exit};
+use std::{path::PathBuf, process};
 use sync_dotfiles_rs::{
     dotconfig::DotConfig,
     utils::{self, FixPath},
@@ -21,9 +21,9 @@ fn main() -> Result<()> {
 
     match args.command {
         Add(args::AddArgs { name, path }) => {
-            let path = path.fix_path().unwrap_or_else(|| PathBuf::from(path));
+            let path = path.fix_path().unwrap_or(PathBuf::from(path));
             dotconfig
-                .add_config(&name, path.as_path())
+                .add_config(&name, path)
                 .context("Failed to insert config")?;
 
             dotconfig
@@ -36,7 +36,7 @@ fn main() -> Result<()> {
 
             println!("Successfully added {name:?} to the config file");
 
-            exit(0);
+            process::exit(0);
         }
 
         Clean => {
@@ -49,7 +49,7 @@ fn main() -> Result<()> {
                 dotconfig.dotconfigs_path
             );
 
-            exit(0);
+            process::exit(0);
         }
 
         ClearMetadata => {
@@ -63,7 +63,7 @@ fn main() -> Result<()> {
 
             println!("Successfully cleared the metadata from the config file");
 
-            exit(0);
+            process::exit(0);
         }
 
         FixConfig => {
@@ -77,20 +77,21 @@ fn main() -> Result<()> {
 
             println!("Successfully fixed up the config file");
 
-            exit(0);
+            process::exit(0);
         }
 
         ForcePull => {
             dotconfig
                 .clean_dotconfigs_dir()
                 .context("Failed to clean all the configs inside the dotconfig directory")?;
+
             dotconfig
                 .force_pull_configs()
                 .context("Failed to force pull configs")?;
 
             println!("Successfully force pulled the configs");
 
-            exit(0);
+            process::exit(0);
         }
 
         ForcePush => {
@@ -100,12 +101,13 @@ fn main() -> Result<()> {
 
             println!("Successfully force pushed the configs");
 
-            exit(0);
+            process::exit(0);
         }
 
         PrintConfig => {
             println!("{dotconfig}");
-            exit(0);
+
+            process::exit(0);
         }
 
         PrintNew => {
@@ -116,24 +118,26 @@ fn main() -> Result<()> {
 
             println!("{config}");
 
-            exit(0);
+            process::exit(0);
         }
         Update => {
             dotconfig.sync_configs().context("Failed to sync configs")?;
+
             dotconfig
                 .save_configs()
                 .context("Failed to save config file")?;
 
             println!("Successfully updated the config file");
 
-            exit(0);
+            process::exit(0);
         }
 
         Edit => {
             dotconfig
                 .edit_config_file()
                 .context("Failed to edit config file")?;
-            exit(0);
+
+            process::exit(0);
         }
     }
 }

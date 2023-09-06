@@ -5,7 +5,10 @@ use crate::{
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
-use std::{path::PathBuf, str::FromStr};
+use std::{
+    fmt, fs, io,
+    path::{Path, PathBuf},
+};
 use walkdir::WalkDir;
 
 /// Config struct for storing config metadata and syncing configs.
@@ -268,12 +271,10 @@ impl Config {
     /// assert!(existant_config.path_exists());
     /// ```
     pub fn path_exists(&self) -> bool {
-        let path = self
-            .path
+        self.path
             .fix_path()
-            .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
-
-        path.exists()
+            .unwrap_or(PathBuf::from(&self.path))
+            .exists()
     }
 
     /// Calculate the hash of the metadata for a file or directory.
@@ -305,26 +306,21 @@ impl Config {
     /// }
     /// ```
     pub fn metadata_digest(&self) -> Result<String> {
-        let path = self
-            .path
-            .fix_path()
-            .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
+        let path = self.path.fix_path().unwrap_or(PathBuf::from(&self.path));
 
         // check if the path exists and return empty string if it doesn't
         if !self.path_exists() {
             return Ok(String::new());
         }
 
-        let mut hash: String = String::new();
         if path.is_file() {
-            hash = hasher::get_file_hash(&path, &mut Sha1::new())?;
+            return Ok(hasher::get_file_hash(&path, &mut Sha1::new())?);
         }
         if path.is_dir() {
-            let dir_files = hasher::list_dir_files(&path);
-            hash = hasher::get_complete_dir_hash(&dir_files, &mut Sha1::new())?
+            return Ok(hasher::get_complete_dir_hash(&path, &mut Sha1::new())?);
         }
 
-        Ok(hash)
+        Err(anyhow::anyhow!("Invalid config type: {:#?}", self.path))
     }
 
     /// Check if the configuration needs metadata update.
@@ -360,12 +356,15 @@ impl Config {
                     .metadata_digest()
                     .expect("Failed to get metadata digest");
 
-                if !hash.eq(&digest) {
+                // If hash hash doesn't match, then we require metadata update
+                if hash.ne(&digest) {
                     true
                 } else {
+                    // If config tye is not preset, then we require metadata update
                     self.conf_type.is_none()
                 }
             }
+            // If hash is not set, then we require metadata update
             None => true,
         }
     }
@@ -420,16 +419,14 @@ impl Config {
     ///
     /// assert_eq!(config.conf_type, Some(ConfType::File));
     pub fn update_config_type(&mut self) -> Result<()> {
-        let path = self
-            .path
-            .fix_path()
-            .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
+        let path = self.path.fix_path().unwrap_or(PathBuf::from(&self.path));
 
         if !path.exists() {
             println!("Config does not exist: {:#?}", self.path);
             return Ok(());
         }
 
+        // If the config type is not set, then update it
         if self.conf_type.is_none() {
             if path.is_file() {
                 self.conf_type = Some(ConfType::File);
@@ -526,14 +523,9 @@ impl Config {
     /// - It relies on the `copy_config_directory` method for directory
     /// copying.
     pub fn pull_config(&self, path: &String) -> Result<()> {
-        let dotconfigs_path = path
-            .fix_path()
-            .unwrap_or_else(|| PathBuf::from_str(path).unwrap());
+        let dotconfigs_path = path.fix_path().unwrap_or(PathBuf::from(path));
 
-        let selfpath = self
-            .path
-            .fix_path()
-            .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
+        let selfpath = self.path.fix_path().unwrap_or(PathBuf::from(&self.path));
 
         let config_path = dotconfigs_path.join(selfpath);
 
@@ -543,7 +535,7 @@ impl Config {
                 "Creating dotconfigs directory: {:#?}",
                 dotconfigs_path.display()
             );
-            std::fs::create_dir_all(&dotconfigs_path)?;
+            fs::create_dir_all(&dotconfigs_path)?;
         }
 
         // If the config path doesn't exist, skip it
@@ -555,7 +547,7 @@ impl Config {
         // if the config path is just a file, then directly copy it
         if let Some(conf_type) = &self.conf_type {
             if conf_type.is_file() {
-                std::fs::copy(
+                fs::copy(
                     &config_path,
                     dotconfigs_path.join(config_path.file_name().unwrap()),
                 )?;
@@ -574,25 +566,23 @@ impl Config {
                         let new_path = dotconfigs_path.join(
                             PathBuf::from(&self.name).join(
                                 path.strip_prefix(
-                                    self.path
-                                        .fix_path()
-                                        .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap()),
+                                    self.path.fix_path().unwrap_or(PathBuf::from(&self.path)),
                                 )
                                 .unwrap(),
                             ),
                         );
 
                         if path.is_dir() {
-                            if let Err(e) = std::fs::create_dir_all(&new_path) {
+                            if let Err(e) = fs::create_dir_all(&new_path) {
                                 match e.kind() {
-                                    std::io::ErrorKind::AlreadyExists => {}
+                                    io::ErrorKind::AlreadyExists => {}
                                     _ => {
                                         println!("Failed to create directory: {:#?}", new_path);
                                     }
                                 }
                             }
                         } else {
-                            std::fs::copy(path, new_path).expect("Failed to copy file");
+                            fs::copy(path, new_path).expect("Failed to copy file");
                         }
                     });
             }
@@ -617,18 +607,15 @@ impl Config {
     ///
     /// Returns a Result indicating success or an error if the copy operation
     /// fails.
-    fn copy_config_directory(
-        config_path: &PathBuf,
-        dotconfigs_path: &std::path::Path,
-    ) -> Result<()> {
+    fn copy_config_directory(config_path: &PathBuf, dotconfigs_path: &Path) -> Result<()> {
         if !config_path.exists() {
-            std::fs::create_dir_all(config_path).expect("Failed to create directory");
+            fs::create_dir_all(config_path).expect("Failed to create directory");
         } else {
             // Delete all the files in the config_path directory
             // Use match for Ignoring the NotFound error as it is not a problem
-            if let Err(e) = std::fs::remove_dir_all(config_path) {
+            if let Err(e) = fs::remove_dir_all(config_path) {
                 match e.kind() {
-                    std::io::ErrorKind::NotFound => {}
+                    io::ErrorKind::NotFound => {}
                     _ => {
                         return Err(anyhow::anyhow!(
                             "Failed to delete directory: {:#?}",
@@ -639,7 +626,7 @@ impl Config {
             }
 
             // Create the config_path directory again
-            std::fs::create_dir_all(config_path).expect("Failed to create directory");
+            fs::create_dir_all(config_path).expect("Failed to create directory");
         }
 
         // copy config from dotconfigs_path directory to config_path directory
@@ -727,47 +714,37 @@ impl Config {
     /// - It relies on the `copy_config_directory` method for directory
     /// copying.
     pub fn push_config(&self, path: &str) -> Result<()> {
-        let dotconfigs_path = path
-            .fix_path()
-            .unwrap_or_else(|| PathBuf::from_str(path).unwrap());
+        let dotconfigs_path = path.fix_path().unwrap_or(PathBuf::from(path));
 
-        let config_path = self
-            .path
-            .fix_path()
-            .unwrap_or_else(|| PathBuf::from_str(&self.path).unwrap());
+        let config_path = self.path.fix_path().unwrap_or(PathBuf::from(&self.path));
 
         // If dotconfigs_path doesn't exist, then
         if !dotconfigs_path.exists() {
-            println!("{:#?} does not exist!", dotconfigs_path);
             return Err(anyhow::anyhow!("{:#?} does not exist!", dotconfigs_path));
         }
 
         // If the config_path is a file, then just copy it
         if let Some(conf_type) = &self.conf_type {
             if conf_type.is_file() {
-                std::fs::copy(
+                fs::copy(
                     dotconfigs_path.join(config_path.file_name().unwrap()),
                     &config_path,
                 )?;
             } else if conf_type.is_dir() {
                 Self::copy_config_directory(&config_path, &dotconfigs_path)?;
             } else {
-                println!("Invalid config type: {:#?}", self.conf_type);
-
                 return Err(anyhow::anyhow!("Invalid config type!"));
             }
         } else {
             // check if the config_path is a file
             if config_path.is_file() {
-                std::fs::copy(
+                fs::copy(
                     dotconfigs_path.join(config_path.file_name().unwrap()),
                     &config_path,
                 )?;
             } else if config_path.is_dir() {
                 Self::copy_config_directory(&config_path, &dotconfigs_path)?;
             } else {
-                println!("Invalid config type: {:#?}", self.conf_type);
-
                 return Err(anyhow::anyhow!("Invalid config type!"));
             }
         }
@@ -802,8 +779,8 @@ impl Config {
 /// ```text
 /// Config details: { name: config, path: <path>/config.ron, conf_type: Some(ConfType::File) }
 /// ```
-impl std::fmt::Display for Config {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Config {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{{ ")?;
         write!(f, "name: {}, ", self.name)?;
         write!(f, "path: {}, ", self.path)?;

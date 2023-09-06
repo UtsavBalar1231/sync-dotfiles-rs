@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use home::home_dir;
 use ron::{extensions::Extensions, ser::PrettyConfig};
 use std::{env, path::PathBuf};
 
@@ -53,7 +52,7 @@ pub trait FixPath<T> {
 impl FixPath<PathBuf> for PathBuf {
     /// Fix the path to be absolute and not relative for PathBuf type
     fn fix_path(&self) -> Option<PathBuf> {
-        let home_dir = home_dir().expect("Failed to get home directory");
+        let home_dir = PathBuf::from(env!("HOME"));
 
         // Check if the path starts with ./ replace it with the current directory
         // and if it starts with ~/ then replace it with the home directory
@@ -128,7 +127,7 @@ impl FixPath<String> for String {
             return Some(std::path::PathBuf::new());
         }
 
-        let home_dir = home_dir().expect("Failed to get home directory");
+        let home_dir = PathBuf::from(env!("HOME"));
 
         // Check if the path starts with ./ replace it with the current directory
         // and if it starts with ~/ then replace it with the home directory
@@ -195,7 +194,7 @@ impl FixPath<&str> for &str {
             return Some(std::path::PathBuf::new());
         }
 
-        let home_dir = home_dir().expect("Failed to get home directory");
+        let home_dir = PathBuf::from(env!("HOME"));
 
         // Check if the path starts with ./ replace it with the current directory
         // and if it starts with ~/ then replace it with the home directory

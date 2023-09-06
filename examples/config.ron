@@ -1,20 +1,12 @@
 #![enable(implicit_some)]
 (
-    dotconfigs_path: "examples/dotconfigs_path",
+    dotconfigs_path: "./examples/dotfiles-dir-example/",
     configs: [
-        (name: "leftwm", path: "examples/configs/leftwm/"),
-        (name: "nvim", path: "examples/configs/nvim/"),
-        (name: "picom", path: "examples/configs/picom/"),
-        (name: "polybar", path: "examples/configs/polybar/"),
-        (name: "rofi", path: "examples/configs/rofi/"),
-        (name: "zsh", path: "examples/configs/zsh/"),
-        (name: "xorg", path: "examples/configs/xorg/"),
-        (name: "dunst", path: "examples/configs/dunst/"),
-        (name: "kitty", path: "examples/configs/kitty/"),
-        (name: "hypr", path: "examples/configs/hypr/"),
-        (name: "sync-dotfiles", path: "examples/configs/sync-dotfiles/"),
-        (name: "clang-format", path: "examples/configs/.clang-format"),
-        (name: "zshrc", path: "examples/configs/.zshrc"),
-        (name: "xinitrc", path: "examples/configs/.xinitrc"),
+        (name: "folder1", path: "./examples/local_configs_dir/folder_1", hash: "63027d7630360e4203c0e3f970ec2ffcfe5f8f1b", conf_type: Dir),
+        (name: "folder2", path: "./examples/local_configs_dir/folder_2", hash: "6110212c651287fa93aae5142e60b50edde00970", conf_type: Dir),
+        (name: "folder3", path: "./examples/local_configs_dir/folder_3", hash: "63027d7630360e4203c0e3f970ec2ffcfe5f8f1b", conf_type: Dir),
+        (name: "folder4", path: "./examples/local_configs_dir/folder_4", hash: "10a34637ad661d98ba3344717656fcc76209c2f8", conf_type: Dir),
+        (name: "file5", path: "./examples/local_configs_dir/file_5", hash: "da39a3ee5e6b4b0d3255bfef95601890afd80709", conf_type: File),
+        (name: "file6", path: "./examples/local_configs_dir/file_6", hash: "da39a3ee5e6b4b0d3255bfef95601890afd80709", conf_type: File),
     ],
 )

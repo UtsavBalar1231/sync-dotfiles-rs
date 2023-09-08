@@ -1,6 +1,6 @@
 #![enable(implicit_some)]
 (
-    dotconfigs_path: "./examples/dotfiles-dir-example/",
+    dotconfigs_path: Local("./examples/dotfiles-dir-example/"),
     configs: [
         (name: "folder1", path: "./examples/local_configs_dir/folder_1", hash: "63027d7630360e4203c0e3f970ec2ffcfe5f8f1b", conf_type: Dir),
         (name: "folder2", path: "./examples/local_configs_dir/folder_2", hash: "6110212c651287fa93aae5142e60b50edde00970", conf_type: Dir),

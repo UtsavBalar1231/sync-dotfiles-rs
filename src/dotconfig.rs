@@ -19,13 +19,30 @@ use std::{fmt, fs, io::Write, path::PathBuf, process, sync::Mutex};
 /// `Config` structs, each representing a configuration file.
 #[derive(Serialize, Deserialize)]
 pub struct DotConfig {
-    /// The path to the dotconfig directory.
-    ///
-    /// This path serves as the base directory for syncing configuration files.
-    pub dotconfigs_path: String,
+    /// Enum representing the path to the dotconfig directory.
+    pub dotconfigs_path: DotconfigPath,
     /// A vector of `Config` structs, each representing an individual
     /// configuration file.
     pub configs: Vec<Config>,
+}
+
+/// Enum representing the path to the dotconfig directory.
+///
+/// This enum is used to specify the path to the dotconfig directory.
+/// It can be either a GitHub repository or a local directory.
+///
+/// # Examples
+///
+/// ```rust
+/// use sync_dotfiles_rs::dotconfig::DotconfigPath;
+///
+/// let dotconfig_github = DotconfigPath::Github("https://github.com/user/repo".to_string());
+/// let dotconfig_local = DotconfigPath::Local(String::from("~/dotfiles"));
+/// ```
+#[derive(Serialize, Deserialize)]
+pub enum DotconfigPath {
+    Github(String),
+    Local(String),
 }
 
 lazy_static! {
@@ -33,7 +50,7 @@ lazy_static! {
     ///
     /// This static variable stores the path to the configuration file and
     /// allows it to be accessed and modified safely from multiple threads.
-static ref CONFIG_PATH: Mutex<PathBuf> = Mutex::new(get_default_config_path());
+    static ref CONFIG_PATH: Mutex<PathBuf> = Mutex::new(get_default_config_path());
 }
 
 /// Function to determine the default configuration file path.
@@ -199,9 +216,13 @@ impl DotConfig {
                 // update the metadata in the config file
                 dir.update_metadata().expect("Failed to update config hash");
 
-                // replace the config file with the latest version
-                dir.pull_config(&self.dotconfigs_path)
-                    .expect("Failed to pull config");
+                if let DotconfigPath::Local(local_dotconfigs_path) = &self.dotconfigs_path {
+                    // Replace the config file with the latest version
+                    dir.pull_config(local_dotconfigs_path)
+                        .expect("Failed to pull config");
+                } else {
+                    println!("Skipping dotconfigs_path does not exist.");
+                }
             } else {
                 // if the config does not need to be updated, skip the config
                 println!("Skipping {:#?} already up-to date.", dir.name);
@@ -227,9 +248,14 @@ impl DotConfig {
     /// fail during the pull operation.
     pub fn force_pull_configs(&self) -> Result<()> {
         self.configs.par_iter().for_each(|dir| {
-            println!("Force pulling {:#?}.", dir.name);
-            dir.pull_config(&self.dotconfigs_path)
-                .expect("Failed to force pull the config");
+            if let DotconfigPath::Local(local_dotconfigs_path) = &self.dotconfigs_path {
+                println!("Force pulling {:#?}.", dir.name);
+
+                dir.pull_config(local_dotconfigs_path)
+                    .expect("Failed to force pull the config");
+            } else {
+                println!("Skipping dotconfigs_path does not exist.");
+            }
         });
 
         Ok(())
@@ -250,9 +276,14 @@ impl DotConfig {
     /// during the push operation.
     pub fn force_push_configs(&self) -> Result<()> {
         self.configs.par_iter().for_each(|dir| {
-            println!("Force pushing {:#?}.", dir.name);
-            dir.push_config(&self.dotconfigs_path)
-                .expect("Failed to force push the config");
+            if let DotconfigPath::Local(local_dotconfigs_path) = &self.dotconfigs_path {
+                println!("Force pushing {:#?}.", dir.name);
+
+                dir.push_config(local_dotconfigs_path)
+                    .expect("Failed to force push the config");
+            } else {
+                println!("Skipping dotconfigs path does not exist.");
+            }
         });
 
         Ok(())
@@ -298,21 +329,25 @@ impl DotConfig {
     /// A Result indicating success or an error if any file or directory
     /// removal fails.
     pub fn clean_dotconfigs_dir(&self) -> Result<()> {
-        let path = self
-            .dotconfigs_path
-            .fix_path()
-            .ok_or_else(|| PathBuf::from(&self.dotconfigs_path))
-            .expect("Failed to fix path");
-
+        let mut path: Option<PathBuf> = None;
+        if let DotconfigPath::Local(local_dotconfigs_path) = &self.dotconfigs_path {
+            path = Some(
+                local_dotconfigs_path
+                    .fix_path()
+                    .ok_or_else(|| PathBuf::from(&local_dotconfigs_path))
+                    .expect("Failed to fix path"),
+            );
+        }
         println!("Cleaning all the configs inside {path:#?}");
 
         // iterate over all the files and directories inside the dotconfigs folder
-        walkdir::WalkDir::new(&path)
+        walkdir::WalkDir::new(path.as_ref().unwrap())
             .into_iter()
             .filter_map(|e| e.ok())
             .for_each(|e| {
                 // skip the path itself and the .git folder
-                if e.path() == path || e.path().to_string_lossy().contains(".git") {
+                if e.path() == path.as_ref().unwrap() || e.path().to_string_lossy().contains(".git")
+                {
                     return;
                 }
 
@@ -434,6 +469,59 @@ impl fmt::Display for DotConfig {
     }
 }
 
+/// Display implementation for DotconfigPath.
+///
+/// This implementation allows you to print a human-readable representation
+/// of a `DotconfigPath` instance.
+///
+/// # Example
+///
+/// ```rust
+/// use sync_dotfiles_rs::dotconfig::DotconfigPath;
+///
+/// let dotconfig_path = DotconfigPath::Local("path/to/dotconfigs".to_string());
+/// println!("{}", dotconfig_path);
+/// ```
+impl fmt::Display for DotconfigPath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DotconfigPath::Local(local_dotconfigs_path) => {
+                write!(f, "{local_dotconfigs_path}")
+            }
+            DotconfigPath::Github(remote_dotconfigs_path) => {
+                write!(f, "{remote_dotconfigs_path}")
+            }
+        }
+    }
+}
+
+/// Debug implementation for DotconfigPath.
+///
+/// This implementation allows you to print a human-readable representation
+/// of a `DotconfigPath` instance.
+///
+/// # Example
+///
+/// ```rust
+/// use sync_dotfiles_rs::dotconfig::DotconfigPath;
+///
+/// let dotconfig_path = DotconfigPath::Github(
+///         "https://github.com/user/repo".to_string());
+/// println!("{:?}", dotconfig_path);
+/// ```
+impl fmt::Debug for DotconfigPath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DotconfigPath::Local(local_dotconfigs_path) => {
+                write!(f, "{local_dotconfigs_path}")
+            }
+            DotconfigPath::Github(remote_dotconfigs_path) => {
+                write!(f, "{remote_dotconfigs_path}")
+            }
+        }
+    }
+}
+
 /// Default implementation for DotConfig.
 ///
 /// This implementation creates a new `DotConfig` instance with default
@@ -441,7 +529,7 @@ impl fmt::Display for DotConfig {
 impl Default for DotConfig {
     fn default() -> Self {
         DotConfig {
-            dotconfigs_path: String::from("~/dotfiles"),
+            dotconfigs_path: DotconfigPath::Local(String::from("~/dotfiles")),
             configs: vec![Config::default()],
         }
     }

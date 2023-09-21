@@ -25,7 +25,11 @@ pub enum Commands {
 
     /// Update your dotconfigs directory with the latest configs
     #[clap(short_flag = 'u')]
-    Update,
+    Pull,
+
+    /// Update your local system configs with the configs from the dotconfigs directory
+    #[clap(short_flag = 'U')]
+    Push,
 
     /// Clear the metadata of config entries in the sync-dotfiles config
     #[clap(short_flag = 'x')]

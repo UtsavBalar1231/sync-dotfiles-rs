@@ -1,7 +1,7 @@
 use crate::{
     config::ConfType,
     config::Config,
-    fix_path,
+    fix_path, hasher,
     utils::{get_ron_formatter, FixPath},
 };
 
@@ -10,6 +10,7 @@ use lazy_static::lazy_static;
 use rayon::prelude::*;
 use ron::{extensions::Extensions, ser::to_string_pretty, Options};
 use serde::{Deserialize, Serialize};
+use sha1::{Digest, Sha1};
 use std::{fmt, fs, io::Write, path::PathBuf, process, sync::Mutex};
 
 /// Struct to store configuration data, including the path to the dotconfig
@@ -186,7 +187,7 @@ impl DotConfig {
         Ok(())
     }
 
-    /// Synchronize all configured files based on their metadata.
+    /// Pull all configured files based on their metadata.
     ///
     /// This method iterates through the list of configured files and checks
     /// whether each file needs to be updated based on its metadata.
@@ -198,7 +199,7 @@ impl DotConfig {
     /// # Returns
     ///
     /// A Result indicating success or an error if any synchronization operations fail.
-    pub fn sync_configs(&mut self) -> Result<()> {
+    pub fn pull_updated_configs(&mut self) -> Result<()> {
         // iterate through all the configs
         self.configs.iter_mut().for_each(|dir| {
             // check if the config dir exists
@@ -225,6 +226,92 @@ impl DotConfig {
             } else {
                 // if the config does not need to be updated, skip the config
                 println!("Skipping {:#?} already up-to date.", dir.name);
+            }
+        });
+
+        Ok(())
+    }
+
+    /// Push Updatable configs back to their local destination in the system
+    ///
+    /// The `push_updated_configs` method is responsible for pushing all the
+    /// updated configuration files to their specified destination paths.
+    ///
+    /// It iterates through the list of configured files and, for each
+    /// configuration, checks if it needs to be updated based on its metadata.
+    /// If an update is required, it pushes the updated configuration to its
+    /// specified destination.
+    ///
+    /// This operation is essential when you want to synchronize your local
+    /// configurations with a remote repository or directory specified in the
+    /// `DotConfig` structure's `dotconfigs_path` field.
+    ///
+    /// # Errors
+    ///
+    /// This method may return an error if any file operations or the pushing
+    /// process fail. Errors could include issues with file I/O, authentication,
+    /// or network connectivity.
+    ///
+    /// # Note
+    ///
+    /// Before using this method, ensure that you have configured the
+    /// `dotconfigs_path` field in your `DotConfig` instance to specify where
+    /// you want to push the updated configurations. The method will use this
+    /// destination to push the changes.
+    ///
+    /// Additionally, this method does not perform metadata checks and
+    /// forcefully pushes all updated configurations, overwriting existing files
+    /// if necessary.
+    ///
+    /// This method is often used in conjunction with `pull_updated_configs` to
+    /// maintain a consistent state between local and remote configurations.
+    ///
+    /// If the `dotconfigs_path` field specifies a local directory, the method
+    /// copies the updated configurations from your local system to the
+    /// specified directory. If it specifies a remote repository URL, the
+    /// method may use Git or another version control system to push changes to
+    /// the remote repository.
+    ///
+    /// For security reasons, be cautious when using this method in automated
+    /// scripts, as it may overwrite existing files in the destination
+    /// directory.
+    pub fn push_updated_configs(&mut self) -> Result<()> {
+        self.configs.par_iter().for_each(|dir| {
+            if let DotconfigPath::Local(local_dotconfigs_path) = &self.dotconfigs_path {
+                let dotconfigs_config_path =
+                    fix_path!(local_dotconfigs_path, local_dotconfigs_path.into())
+                        .join(PathBuf::from(&dir.path).iter().last().unwrap());
+
+                let local_config_hash = dir
+                    .metadata_digest()
+                    .expect("Failed to get metadata digest");
+
+                let mut dotconfigs_hash: Option<String> = None;
+                if dotconfigs_config_path.is_file() {
+                    dotconfigs_hash =
+                        hasher::get_file_hash(&dotconfigs_config_path, &mut Sha1::new())
+                            .unwrap()
+                            .into();
+                } else if dotconfigs_config_path.is_dir() {
+                    dotconfigs_hash =
+                        hasher::get_complete_dir_hash(&dotconfigs_config_path, &mut Sha1::new())
+                            .unwrap()
+                            .into();
+                }
+
+                if dotconfigs_hash.is_none() {
+                    println!("Skipping {:#?} does not exist.", dotconfigs_config_path);
+                    return;
+                }
+
+                if dotconfigs_hash.unwrap().ne(&local_config_hash) {
+                    println!("Updating {:#?}.", dir.name);
+
+                    dir.push_config(local_dotconfigs_path)
+                        .expect("Failed to push the config");
+                } else {
+                    println!("Skipping {:#?} already up-to date.", dir.name);
+                }
             }
         });
 

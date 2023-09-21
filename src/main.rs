@@ -27,7 +27,7 @@ fn main() -> Result<()> {
                 .context("Failed to insert config")?;
 
             dotconfig
-                .sync_configs()
+                .pull_updated_configs()
                 .context("Failed to sync the newly inserted config")?;
 
             dotconfig
@@ -120,14 +120,27 @@ fn main() -> Result<()> {
 
             process::exit(0);
         }
-        Update => {
-            dotconfig.sync_configs().context("Failed to sync configs")?;
+
+        Pull => {
+            dotconfig
+                .pull_updated_configs()
+                .context("Failed to pull updated configs")?;
 
             dotconfig
                 .save_configs()
                 .context("Failed to save config file")?;
 
             println!("Successfully updated the config file");
+
+            process::exit(0);
+        }
+
+        Push => {
+            dotconfig
+                .push_updated_configs()
+                .context("Failed to push configs")?;
+
+            println!("Successfully pushed the updated configs");
 
             process::exit(0);
         }

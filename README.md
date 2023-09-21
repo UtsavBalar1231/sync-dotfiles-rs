@@ -100,13 +100,15 @@ Usage: sync-dotfiles-rs [OPTIONS] <COMMAND>
 Commands:
   force-push, -f      Force push configs from dotconfigs directory into your local system
   force-pull, -F      Force pull configs from your local system into the dotconfigs directory
-  update, -u          Update your dotconfigs directory with the latest configs
+  pull, -u            Update your dotconfigs directory with the latest configs
+  push, -U            Update your local system configs with the configs from the dotconfigs directory
   clear-metadata, -x  Clear the metadata of config entries in the sync-dotfiles config
   new, -n             Prints a new sync-dotfiles configuration
   printconf, -P       Prints the currently used sync-dotfiles config file
   fix-config, -z      Fix your sync-dotfiles config file for any errors
   add, -a             Adds a new config entry to your exisiting sync-dotfiles config
   clean, -C           Clean all the config directories from your specified dotconfigs path
+  edit, -e            Edit the sync-dotfiles config file
   help                Print this message or the help of the given subcommand(s)
 
 Options:
@@ -173,12 +175,12 @@ sync-dotfiles-rs add -n <name> -p <path>`.
 > `-n` or `--name` is the name of the config and `-p` or `--path` is the path to
 > the config.
 
-### Updating your dotconfigs
+### Updating your dotconfigs directory with local system configs
 
-You can update the config files by using the command:
+You can update the config files by
 
 ```bash
-sync-dotfiles-rs update
+sync-dotfiles-rs pull
 ```
 
 or
@@ -191,7 +193,22 @@ sync-dotfiles-rs -u
 > The hash of the config can initially be set to `None` and you can update it
 > later using: `sync-dotfiles-rs -u`
 
-### Cleaning the sync-dotfiles config file
+### Updating your local system configs with the configs from the dotconfigs directory
+
+You can update your local system configs with the configs from the dotconfigs
+directory by using the command:
+
+```bash
+sync-dotfiles-rs push
+```
+
+or
+
+```bash
+sync-dotfiles-rs -U
+```
+
+### Clearing the metadata of config entries in the sync-dotfiles config
 
 You can clean the hash and config type data from your sync-dotfiles config file
 by using the command:
@@ -206,7 +223,7 @@ or
 sync-dotfiles-rs -x
 ```
 
-### Printing the currently used sync-dotfiles config
+### Printing the currently active config file of sync-dotfiles
 
 You can print your currently used sync-dotfiles config by using the command:
 

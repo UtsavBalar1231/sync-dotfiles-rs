@@ -2,6 +2,58 @@ use anyhow::{anyhow, Result};
 use ron::{extensions::Extensions, ser::PrettyConfig};
 use std::{env, path::PathBuf};
 
+/// A macro that fixes a path to ensure it is absolute and not relative.
+///
+/// The `fix_path` macro takes two expressions as arguments: `path` and
+/// `alt_path`. It evaluates `path` and returns a modified version of it that
+/// is guaranteed to be an absolute path.
+///
+/// If `path` is already an absolute path, it remains unchanged. However,
+/// if `path` is a relative path, it is converted to an absolute path based on
+/// the current working directory or the user's home directory.
+///
+/// If `path` cannot be converted to an absolute path or is already an
+/// absolute, the macro falls back to `alt_path`.
+///
+/// # Arguments
+///
+/// - `$path:expr`: An expression that represents the path to be fixed.
+/// - `$alt_path:expr`: An expression that represents a fallback path to be
+///   used if the conversion to an absolute path fails.
+///
+/// # Returns
+///
+/// The macro returns an expression that represents the fixed path, which is
+/// guaranteed to be an absolute path or the provided fallback path.
+///
+/// # Examples
+///
+/// ```rust
+/// use sync_dotfiles_rs::fix_path;
+/// use crate::sync_dotfiles_rs::utils::FixPath;
+/// use std::path::PathBuf;
+///
+/// let absolute_path = fix_path!("./absolute/path", "/fallback/path".into());
+/// assert_eq!(absolute_path,
+///     PathBuf::from(
+///         format!("{}/{}", env!("CARGO_MANIFEST_DIR"), "/absolute/path")));
+///
+/// let relative_path = fix_path!("~/relative/path", "/fallback/path".into());
+/// assert_eq!(relative_path,
+///     PathBuf::from(format!("{}/{}", env!("HOME"), "/relative/path")));
+/// ```
+///
+/// # Note
+///
+/// This macro is useful for ensuring that file paths are in the correct format when
+/// working with various filesystem operations, such as reading or writing files.
+#[macro_export]
+macro_rules! fix_path {
+    ($path:expr, $alt_path:expr) => {
+        $path.fix_path().unwrap_or($alt_path)
+    };
+}
+
 /// A trait for fixing paths to ensure they are absolute and not relative
 /// For example, ~/Downloads will be converted to /home/username/Downloads
 ///

@@ -1,5 +1,5 @@
 use crate::{
-    hasher,
+    fix_path, hasher,
     utils::{self, FixPath},
 };
 use anyhow::Result;
@@ -271,10 +271,7 @@ impl Config {
     /// assert!(existant_config.path_exists());
     /// ```
     pub fn path_exists(&self) -> bool {
-        self.path
-            .fix_path()
-            .unwrap_or(PathBuf::from(&self.path))
-            .exists()
+        fix_path!(self.path, PathBuf::from(&self.path)).exists()
     }
 
     /// Calculate the hash of the metadata for a file or directory.
@@ -306,7 +303,7 @@ impl Config {
     /// }
     /// ```
     pub fn metadata_digest(&self) -> Result<String> {
-        let path = self.path.fix_path().unwrap_or(PathBuf::from(&self.path));
+        let path = fix_path!(self.path, PathBuf::from(&self.path));
 
         // check if the path exists and return empty string if it doesn't
         if !self.path_exists() {
@@ -419,7 +416,7 @@ impl Config {
     ///
     /// assert_eq!(config.conf_type, Some(ConfType::File));
     pub fn update_config_type(&mut self) -> Result<()> {
-        let path = self.path.fix_path().unwrap_or(PathBuf::from(&self.path));
+        let path = fix_path!(self.path, PathBuf::from(&self.path));
 
         if !path.exists() {
             println!("Config does not exist: {:#?}", self.path);
@@ -523,9 +520,9 @@ impl Config {
     /// - It relies on the `copy_config_directory` method for directory
     /// copying.
     pub fn pull_config(&self, path: &String) -> Result<()> {
-        let dotconfigs_path = path.fix_path().unwrap_or(PathBuf::from(path));
+        let dotconfigs_path = fix_path!(path, path.into());
 
-        let selfpath = self.path.fix_path().unwrap_or(PathBuf::from(&self.path));
+        let selfpath = fix_path!(self.path, PathBuf::from(&self.path));
 
         let config_path = dotconfigs_path.join(selfpath);
 
@@ -565,10 +562,8 @@ impl Config {
                         let path = entry.path();
                         let new_path = dotconfigs_path.join(
                             PathBuf::from(&self.name).join(
-                                path.strip_prefix(
-                                    self.path.fix_path().unwrap_or(PathBuf::from(&self.path)),
-                                )
-                                .unwrap(),
+                                path.strip_prefix(fix_path!(self.path, PathBuf::from(&self.path)))
+                                    .unwrap(),
                             ),
                         );
 
@@ -714,9 +709,9 @@ impl Config {
     /// - It relies on the `copy_config_directory` method for directory
     /// copying.
     pub fn push_config(&self, path: &str) -> Result<()> {
-        let dotconfigs_path = path.fix_path().unwrap_or(PathBuf::from(path));
+        let dotconfigs_path = fix_path!(path, path.into());
 
-        let config_path = self.path.fix_path().unwrap_or(PathBuf::from(&self.path));
+        let config_path = fix_path!(self.path, PathBuf::from(&self.path));
 
         // If dotconfigs_path doesn't exist, then
         if !dotconfigs_path.exists() {

@@ -1,8 +1,10 @@
 use crate::{
     config::ConfType,
     config::Config,
+    fix_path,
     utils::{get_ron_formatter, FixPath},
 };
+
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
 use rayon::prelude::*;
@@ -120,7 +122,7 @@ impl DotConfig {
     pub fn parse_dotconfig(filepath: &Option<String>) -> Result<Self> {
         // If the user has specified a config file path
         if let Some(path) = filepath {
-            *CONFIG_PATH.lock().unwrap() = path.fix_path().unwrap_or(PathBuf::from(path));
+            *CONFIG_PATH.lock().unwrap() = fix_path!(path, path.into());
         }
 
         let file = fs::File::open(CONFIG_PATH.lock().unwrap().as_path())
@@ -147,10 +149,7 @@ impl DotConfig {
     /// A Result indicating success or an error if any path adjustments fail.
     pub fn fixup_config(&mut self) -> Result<()> {
         self.configs.iter_mut().for_each(|config| {
-            config.path = config
-                .path
-                .fix_path()
-                .unwrap_or(PathBuf::from(&config.path))
+            config.path = fix_path!(config.path, PathBuf::from(&config.path))
                 .to_string_lossy()
                 .to_string();
         });
@@ -331,12 +330,10 @@ impl DotConfig {
     pub fn clean_dotconfigs_dir(&self) -> Result<()> {
         let mut path: Option<PathBuf> = None;
         if let DotconfigPath::Local(local_dotconfigs_path) = &self.dotconfigs_path {
-            path = Some(
-                local_dotconfigs_path
-                    .fix_path()
-                    .ok_or_else(|| PathBuf::from(&local_dotconfigs_path))
-                    .expect("Failed to fix path"),
-            );
+            path = Some(fix_path!(
+                local_dotconfigs_path,
+                PathBuf::from(&local_dotconfigs_path)
+            ));
         }
         println!("Cleaning all the configs inside {path:#?}");
 
@@ -346,7 +343,8 @@ impl DotConfig {
             .filter_map(|e| e.ok())
             .for_each(|e| {
                 // skip the path itself and the .git folder
-                if e.path() == path.as_ref().unwrap() || e.path().to_string_lossy().contains(".git")
+                if e.path().eq(path.as_ref().unwrap())
+                    || e.path().to_string_lossy().contains(".git")
                 {
                     return;
                 }

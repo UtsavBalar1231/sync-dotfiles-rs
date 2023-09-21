@@ -1,6 +1,6 @@
 [package]
 name = "sync-dotfiles-rs"
-version = "0.1.8"
+version = "0.1.9"
 authors = ["Utsav Balar <utsavbalar1231@gmail.com>"]
 categories = ["command-line-utilities"]
 edition = "2021"

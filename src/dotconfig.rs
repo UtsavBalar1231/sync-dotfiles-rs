@@ -278,9 +278,17 @@ impl DotConfig {
     pub fn push_updated_configs(&mut self) -> Result<()> {
         self.configs.par_iter().for_each(|dir| {
             if let DotconfigPath::Local(local_dotconfigs_path) = &self.dotconfigs_path {
-                let dotconfigs_config_path =
-                    fix_path!(local_dotconfigs_path, local_dotconfigs_path.into())
-                        .join(PathBuf::from(&dir.path).iter().last().unwrap());
+                let dotconfigs_config_path = {
+                    let mut path = fix_path!(local_dotconfigs_path, local_dotconfigs_path.into())
+                        .join(&dir.name);
+
+                    if !path.exists() {
+                        path = fix_path!(local_dotconfigs_path, local_dotconfigs_path.into());
+                        path.push(PathBuf::from(&dir.path).file_name().unwrap());
+                    }
+
+                    path
+                };
 
                 let local_config_hash = dir
                     .metadata_digest()
@@ -307,7 +315,7 @@ impl DotConfig {
                 if dotconfigs_hash.unwrap().ne(&local_config_hash) {
                     println!("Updating {:#?}.", dir.name);
 
-                    dir.push_config(local_dotconfigs_path)
+                    dir.push_config(&dotconfigs_config_path)
                         .expect("Failed to push the config");
                 } else {
                     println!("Skipping {:#?} already up-to date.", dir.name);
@@ -363,9 +371,21 @@ impl DotConfig {
     pub fn force_push_configs(&self) -> Result<()> {
         self.configs.par_iter().for_each(|dir| {
             if let DotconfigPath::Local(local_dotconfigs_path) = &self.dotconfigs_path {
+                let dotconfigs_config_path = {
+                    let mut path = fix_path!(local_dotconfigs_path, local_dotconfigs_path.into())
+                        .join(&dir.name);
+
+                    if !path.exists() {
+                        path = fix_path!(local_dotconfigs_path, local_dotconfigs_path.into());
+                        path.push(PathBuf::from(&dir.path).file_name().unwrap());
+                    }
+
+                    path
+                };
+
                 println!("Force pushing {:#?}.", dir.name);
 
-                dir.push_config(local_dotconfigs_path)
+                dir.push_config(&dotconfigs_config_path)
                     .expect("Failed to force push the config");
             } else {
                 println!("Skipping dotconfigs path does not exist.");

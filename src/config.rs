@@ -594,38 +594,38 @@ impl Config {
     ///
     /// # Arguments
     ///
-    /// * `config_path`: The path to the configuration directory in the
+    /// * `to_config_path`: The path to the configuration directory in the
     /// home directory.
-    /// * `dotconfigs_path`: The path to the dotconfig directory.
+    /// * `from_dotconfigs_path`: The path to the dotconfig directory.
     ///
     /// # Returns
     ///
     /// Returns a Result indicating success or an error if the copy operation
     /// fails.
-    fn copy_config_directory(config_path: &PathBuf, dotconfigs_path: &Path) -> Result<()> {
-        if !config_path.exists() {
-            fs::create_dir_all(config_path).expect("Failed to create directory");
+    fn copy_config_directory(to_config_path: &PathBuf, from_dotconfigs_path: &Path) -> Result<()> {
+        if !to_config_path.exists() {
+            fs::create_dir_all(to_config_path).expect("Failed to create directory");
         } else {
-            // Delete all the files in the config_path directory
+            // Delete all the files in the to_config_path directory
             // Use match for Ignoring the NotFound error as it is not a problem
-            if let Err(e) = fs::remove_dir_all(config_path) {
+            if let Err(e) = fs::remove_dir_all(to_config_path) {
                 match e.kind() {
                     io::ErrorKind::NotFound => {}
                     _ => {
                         return Err(anyhow::anyhow!(
                             "Failed to delete directory: {:#?}",
-                            config_path
+                            to_config_path
                         ));
                     }
                 }
             }
 
-            // Create the config_path directory again
-            fs::create_dir_all(config_path).expect("Failed to create directory");
+            // Create the to_config_path directory again
+            fs::create_dir_all(to_config_path).expect("Failed to create directory");
         }
 
-        // copy config from dotconfigs_path directory to config_path directory
-        WalkDir::new(config_path).into_iter().for_each(|entry| {
+        // copy config from from_dotconfigs_path directory to to_config_path directory
+        WalkDir::new(to_config_path).into_iter().for_each(|entry| {
             if entry.is_err() {
                 println!("Failed to read directory: {:#?}", entry);
                 return;
@@ -633,15 +633,7 @@ impl Config {
 
             let entry = entry.ok().unwrap();
 
-            // ignore git directory
-            if entry.path().to_str().unwrap().contains(".git") {
-                return;
-            }
-
-            // Convert: /home/user/dotconfigs-repo/config/* to config_path/*
-            let path = &dotconfigs_path.join(config_path.iter().last().unwrap());
-
-            utils::copy_dir(path, &entry.path().to_path_buf()).expect("Failed to copy directory");
+            utils::copy_dir(from_dotconfigs_path, entry.path()).expect("Failed to copy directory");
         });
 
         Ok(())
@@ -693,7 +685,7 @@ impl Config {
     /// assert!(config.path_exists());
     ///
     /// // Push the configuration to the dotconfig directory.
-    /// config.push_config(&format!("{}/examples", env!("CARGO_MANIFEST_DIR")))
+    /// config.push_config(&path)
     ///             .expect("Failed to push config");
     ///
     /// let mut file =
@@ -708,39 +700,35 @@ impl Config {
     /// the `conf_type` field.
     /// - It relies on the `copy_config_directory` method for directory
     /// copying.
-    pub fn push_config(&self, path: &str) -> Result<()> {
-        let dotconfigs_path = fix_path!(path, path.into());
+    pub fn push_config(&self, path: &PathBuf) -> Result<()> {
+        let from_dotconfigs_path = fix_path!(path, path.into());
+        let to_config_path = fix_path!(self.path, PathBuf::from(&self.path));
 
-        let config_path = fix_path!(self.path, PathBuf::from(&self.path));
-
-        // If dotconfigs_path doesn't exist, then
-        if !dotconfigs_path.exists() {
-            return Err(anyhow::anyhow!("{:#?} does not exist!", dotconfigs_path));
+        // If dotconfigs_path doesn't exist, then return
+        if !from_dotconfigs_path.exists() {
+            return Err(anyhow::anyhow!(
+                "{:#?} does not exist!",
+                from_dotconfigs_path
+            ));
         }
 
-        // If the config_path is a file, then just copy it
+        // If the to_config_path is a file, then just copy it
         if let Some(conf_type) = &self.conf_type {
             if conf_type.is_file() {
-                fs::copy(
-                    dotconfigs_path.join(config_path.file_name().unwrap()),
-                    &config_path,
-                )?;
+                fs::copy(from_dotconfigs_path, &to_config_path)?;
             } else if conf_type.is_dir() {
-                Self::copy_config_directory(&config_path, &dotconfigs_path)?;
+                Self::copy_config_directory(&to_config_path, &from_dotconfigs_path)?;
             } else {
                 return Err(anyhow::anyhow!("Invalid config type!"));
             }
         } else {
-            // check if the config_path is a file
-            if config_path.is_file() {
-                fs::copy(
-                    dotconfigs_path.join(config_path.file_name().unwrap()),
-                    &config_path,
-                )?;
-            } else if config_path.is_dir() {
-                Self::copy_config_directory(&config_path, &dotconfigs_path)?;
+            // check if the to_config_path is a file
+            if to_config_path.is_file() {
+                fs::copy(from_dotconfigs_path, &to_config_path)?;
+            } else if to_config_path.is_dir() {
+                Self::copy_config_directory(&to_config_path, &from_dotconfigs_path)?;
             } else {
-                return Err(anyhow::anyhow!("Invalid config type!"));
+                return Err(anyhow::anyhow!("Invalid config path!"));
             }
         }
 

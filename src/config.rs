@@ -5,6 +5,7 @@ use crate::{
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
+use std::os::unix::fs::PermissionsExt;
 use std::{
     fmt, fs, io,
     path::{Path, PathBuf},
@@ -571,13 +572,37 @@ impl Config {
                             if let Err(e) = fs::create_dir_all(&new_path) {
                                 match e.kind() {
                                     io::ErrorKind::AlreadyExists => {}
+                                    io::ErrorKind::PermissionDenied => {
+                                        todo!("Handle permission denied")
+                                    }
                                     _ => {
                                         println!("Failed to create directory: {:#?}", new_path);
                                     }
                                 }
                             }
-                        } else {
-                            fs::copy(path, new_path).expect("Failed to copy file");
+                        } else if let Err(e) = fs::copy(path, &new_path) {
+                            match e.kind() {
+                                io::ErrorKind::AlreadyExists => {}
+                                io::ErrorKind::PermissionDenied => {
+                                    let mut permissions = fs::metadata(path).unwrap().permissions();
+                                    permissions.set_mode(0o644);
+                                    fs::set_permissions(path, permissions).unwrap();
+
+                                    // Now attempt to copy again
+                                    if let Err(copy_error) = fs::copy(path, &new_path) {
+                                        // Handle any error that may occur during the second copy attempt
+                                        match copy_error.kind() {
+                                            io::ErrorKind::AlreadyExists => {}
+                                            _ => {
+                                                println!("Failed to copy file: {:#?}", copy_error);
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    println!("Failed to copy file: {:#?}", e);
+                                }
+                            }
                         }
                     });
             }

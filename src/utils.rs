@@ -50,8 +50,8 @@ use std::{env, path::PathBuf};
 /// working with various filesystem operations, such as reading or writing files.
 #[macro_export]
 macro_rules! fix_path {
-    ($path:expr, $alt_path:expr) => {
-        $path.fix_path().unwrap_or($alt_path)
+    ($path:expr) => {
+        $path.fix_path().unwrap_or($path.into())
     };
 }
 

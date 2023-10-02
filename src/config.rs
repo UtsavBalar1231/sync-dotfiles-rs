@@ -272,7 +272,7 @@ impl Config {
     /// assert!(existant_config.path_exists());
     /// ```
     pub fn path_exists(&self) -> bool {
-        fix_path!(self.path, PathBuf::from(&self.path)).exists()
+        fix_path!(&self.path).exists()
     }
 
     /// Calculate the hash of the metadata for a file or directory.
@@ -304,7 +304,7 @@ impl Config {
     /// }
     /// ```
     pub fn metadata_digest(&self) -> Result<String> {
-        let path = fix_path!(self.path, PathBuf::from(&self.path));
+        let path = fix_path!(&self.path);
 
         // check if the path exists and return empty string if it doesn't
         if !self.path_exists() {
@@ -417,7 +417,7 @@ impl Config {
     ///
     /// assert_eq!(config.conf_type, Some(ConfType::File));
     pub fn update_config_type(&mut self) -> Result<()> {
-        let path = fix_path!(self.path, PathBuf::from(&self.path));
+        let path = fix_path!(&self.path);
 
         if !path.exists() {
             println!("Config does not exist: {:#?}", self.path);
@@ -521,9 +521,9 @@ impl Config {
     /// - It relies on the `copy_config_directory` method for directory
     /// copying.
     pub fn pull_config(&self, path: &String) -> Result<()> {
-        let dotconfigs_path = fix_path!(path, path.into());
+        let dotconfigs_path = fix_path!(path);
 
-        let selfpath = fix_path!(self.path, PathBuf::from(&self.path));
+        let selfpath = fix_path!(&self.path);
 
         let config_path = dotconfigs_path.join(selfpath);
 
@@ -593,10 +593,8 @@ impl Config {
                         }
                         let path = entry.path();
                         let new_path = dotconfigs_path.join(
-                            PathBuf::from(&self.name).join(
-                                path.strip_prefix(fix_path!(self.path, PathBuf::from(&self.path)))
-                                    .unwrap(),
-                            ),
+                            PathBuf::from(&self.name)
+                                .join(path.strip_prefix(fix_path!(&self.path)).unwrap()),
                         );
 
                         if path.is_dir() {
@@ -790,8 +788,8 @@ impl Config {
     /// - It relies on the `copy_config_directory` method for directory
     /// copying.
     pub fn push_config(&self, path: &PathBuf) -> Result<()> {
-        let from_dotconfigs_path = fix_path!(path, path.into());
-        let to_config_path = fix_path!(self.path, PathBuf::from(&self.path));
+        let from_dotconfigs_path = fix_path!(path);
+        let to_config_path = fix_path!(&self.path);
 
         // If dotconfigs_path doesn't exist, then return
         if !from_dotconfigs_path.exists() {

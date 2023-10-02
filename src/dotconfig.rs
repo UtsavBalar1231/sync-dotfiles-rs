@@ -123,7 +123,7 @@ impl DotConfig {
     pub fn parse_dotconfig(filepath: &Option<String>) -> Result<Self> {
         // If the user has specified a config file path
         if let Some(path) = filepath {
-            *CONFIG_PATH.lock().unwrap() = fix_path!(path, path.into());
+            *CONFIG_PATH.lock().unwrap() = fix_path!(path);
         }
 
         let file = fs::File::open(CONFIG_PATH.lock().unwrap().as_path())
@@ -150,9 +150,7 @@ impl DotConfig {
     /// A Result indicating success or an error if any path adjustments fail.
     pub fn fixup_config(&mut self) -> Result<()> {
         self.configs.iter_mut().for_each(|config| {
-            config.path = fix_path!(config.path, PathBuf::from(&config.path))
-                .to_string_lossy()
-                .to_string();
+            config.path = fix_path!(&config.path).to_string_lossy().to_string();
         });
 
         Ok(())
@@ -279,11 +277,10 @@ impl DotConfig {
         self.configs.par_iter().for_each(|dir| {
             if let DotconfigPath::Local(local_dotconfigs_path) = &self.dotconfigs_path {
                 let dotconfigs_config_path = {
-                    let mut path = fix_path!(local_dotconfigs_path, local_dotconfigs_path.into())
-                        .join(&dir.name);
+                    let mut path = fix_path!(local_dotconfigs_path).join(&dir.name);
 
                     if !path.exists() {
-                        path = fix_path!(local_dotconfigs_path, local_dotconfigs_path.into());
+                        path = fix_path!(local_dotconfigs_path);
                         path.push(PathBuf::from(&dir.path).file_name().unwrap());
                     }
 
@@ -372,11 +369,10 @@ impl DotConfig {
         self.configs.par_iter().for_each(|dir| {
             if let DotconfigPath::Local(local_dotconfigs_path) = &self.dotconfigs_path {
                 let dotconfigs_config_path = {
-                    let mut path = fix_path!(local_dotconfigs_path, local_dotconfigs_path.into())
-                        .join(&dir.name);
+                    let mut path = fix_path!(local_dotconfigs_path).join(&dir.name);
 
                     if !path.exists() {
-                        path = fix_path!(local_dotconfigs_path, local_dotconfigs_path.into());
+                        path = fix_path!(local_dotconfigs_path);
                         path.push(PathBuf::from(&dir.path).file_name().unwrap());
                     }
 
@@ -437,10 +433,7 @@ impl DotConfig {
     pub fn clean_dotconfigs_dir(&self) -> Result<()> {
         let mut path: Option<PathBuf> = None;
         if let DotconfigPath::Local(local_dotconfigs_path) = &self.dotconfigs_path {
-            path = Some(fix_path!(
-                local_dotconfigs_path,
-                PathBuf::from(&local_dotconfigs_path)
-            ));
+            path = Some(fix_path!(local_dotconfigs_path));
         }
         println!("Cleaning all the configs inside {path:#?}");
 

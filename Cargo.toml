@@ -12,10 +12,10 @@ description = "Easily sync dotfiles across machines"
 [dependencies]
 anyhow = "1.0"
 lazy_static = "1.4"
-rayon = "1.7"
+rayon = "1.8"
 ron = "0.8"
 sha1 = "0.10"
-walkdir = "2.3"
+walkdir = "2.4"
 
 [dependencies.serde]
 version = "1.0"

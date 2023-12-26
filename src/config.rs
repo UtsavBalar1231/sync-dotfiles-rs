@@ -551,6 +551,11 @@ impl Config {
                 )?;
                 return Ok(());
             } else if conf_type.is_dir() {
+                // Check if directory exists
+                if !dotconfigs_path.exists() {
+                    println!("Creating dotconfigs directory: {:#?}", dotconfigs_path);
+                    fs::create_dir_all(&dotconfigs_path)?;
+                }
                 // if the config path is a directory, then copy the directory contents
                 WalkDir::new(config_path)
                     .into_iter()
@@ -576,7 +581,10 @@ impl Config {
                                         todo!("Handle permission denied")
                                     }
                                     _ => {
-                                        println!("Failed to create directory: {:#?}", new_path);
+                                        println!(
+                                            "Failed to create directory: {:#?} ({:#?})",
+                                            new_path, e
+                                        );
                                     }
                                 }
                             }

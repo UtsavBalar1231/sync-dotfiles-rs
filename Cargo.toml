@@ -16,6 +16,7 @@ rayon = "1.8"
 ron = "0.8"
 sha1 = "0.10"
 walkdir = "2.4"
+libc = "0.2"
 
 [dependencies.serde]
 version = "1.0"

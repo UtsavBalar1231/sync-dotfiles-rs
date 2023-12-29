@@ -378,6 +378,7 @@ dependencies = [
  "clap",
  "digest",
  "lazy_static",
+ "libc",
  "rayon",
  "ron",
  "serde",

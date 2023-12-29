@@ -1,6 +1,6 @@
 use crate::{
     fix_path, hasher,
-    utils::{self, FixPath},
+    utils::{self, escape_privilege, FixPath},
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -533,7 +533,18 @@ impl Config {
                 "Creating dotconfigs directory: {:#?}",
                 dotconfigs_path.display()
             );
-            fs::create_dir_all(&dotconfigs_path)?;
+            if let Err(e) = fs::create_dir_all(&dotconfigs_path) {
+                match e.kind() {
+                    std::io::ErrorKind::PermissionDenied => {
+                        escape_privilege().expect("Failed to escape privilege");
+                        fs::create_dir_all(&dotconfigs_path).expect("Failed to create directory");
+                    }
+
+                    _ => {
+                        return Err(anyhow::anyhow!("Failed to create directory: {}", e));
+                    }
+                }
+            }
         }
 
         // If the config path doesn't exist, skip it
@@ -545,10 +556,25 @@ impl Config {
         // if the config path is just a file, then directly copy it
         if let Some(conf_type) = &self.conf_type {
             if conf_type.is_file() {
-                fs::copy(
+                if let Err(e) = fs::copy(
                     &config_path,
                     dotconfigs_path.join(config_path.file_name().unwrap()),
-                )?;
+                ) {
+                    match e.kind() {
+                        io::ErrorKind::PermissionDenied => {
+                            escape_privilege().expect("Failed to escape privilege");
+                            fs::copy(
+                                &config_path,
+                                dotconfigs_path.join(config_path.file_name().unwrap()),
+                            )
+                            .expect("Failed to copy file");
+                        }
+
+                        _ => {
+                            return Err(anyhow::anyhow!("Failed to copy file: {:#?}", config_path))
+                        }
+                    }
+                }
                 return Ok(());
             } else if conf_type.is_dir() {
                 // Check if directory exists
@@ -637,13 +663,30 @@ impl Config {
     /// fails.
     fn copy_config_directory(to_config_path: &PathBuf, from_dotconfigs_path: &Path) -> Result<()> {
         if !to_config_path.exists() {
-            fs::create_dir_all(to_config_path).expect("Failed to create directory");
+            if let Err(e) = fs::create_dir_all(to_config_path) {
+                match e.kind() {
+                    io::ErrorKind::PermissionDenied => {
+                        escape_privilege().expect("Failed to escape privilege");
+                        fs::create_dir_all(to_config_path).expect("Failed to create directory");
+                    }
+                    _ => {
+                        return Err(anyhow::anyhow!(
+                            "Failed to create directory: {:#?}",
+                            to_config_path
+                        ));
+                    }
+                }
+            }
         } else {
             // Delete all the files in the to_config_path directory
             // Use match for Ignoring the NotFound error as it is not a problem
             if let Err(e) = fs::remove_dir_all(to_config_path) {
                 match e.kind() {
                     io::ErrorKind::NotFound => {}
+                    io::ErrorKind::PermissionDenied => {
+                        escape_privilege().expect("Failed to escape privilege");
+                        fs::remove_dir_all(to_config_path).expect("Failed to remove directory");
+                    }
                     _ => {
                         return Err(anyhow::anyhow!(
                             "Failed to delete directory: {:#?}",
@@ -654,7 +697,20 @@ impl Config {
             }
 
             // Create the to_config_path directory again
-            fs::create_dir_all(to_config_path).expect("Failed to create directory");
+            if let Err(e) = fs::create_dir_all(to_config_path) {
+                match e.kind() {
+                    io::ErrorKind::PermissionDenied => {
+                        escape_privilege().expect("Failed to escape privilege");
+                        fs::create_dir_all(to_config_path).expect("Failed to create directory");
+                    }
+                    _ => {
+                        return Err(anyhow::anyhow!(
+                            "Failed to create directory: {:#?}",
+                            to_config_path
+                        ))
+                    }
+                }
+            }
         }
 
         // copy config from from_dotconfigs_path directory to to_config_path directory
@@ -748,18 +804,52 @@ impl Config {
         // If the to_config_path is a file, then just copy it
         if let Some(conf_type) = &self.conf_type {
             if conf_type.is_file() {
-                fs::copy(from_dotconfigs_path, &to_config_path)?;
+                if let Err(e) = fs::copy(&from_dotconfigs_path, &to_config_path) {
+                    match e.kind() {
+                        io::ErrorKind::PermissionDenied => {
+                            escape_privilege().expect("Failed to escape privilege");
+                            fs::copy(&from_dotconfigs_path, &to_config_path)
+                                .expect("Failed to copy");
+                        }
+                        _ => {
+                            return Err(anyhow::anyhow!(
+                                "Failed to copy config: {} to {}: {:#?}",
+                                from_dotconfigs_path.display(),
+                                to_config_path.display(),
+                                e
+                            ))
+                        }
+                    }
+                }
             } else if conf_type.is_dir() {
-                Self::copy_config_directory(&to_config_path, &from_dotconfigs_path)?;
+                Self::copy_config_directory(&to_config_path, &from_dotconfigs_path).unwrap()
             } else {
                 return Err(anyhow::anyhow!("Invalid config type!"));
             }
         } else {
             // check if the to_config_path is a file
             if to_config_path.is_file() {
-                fs::copy(from_dotconfigs_path, &to_config_path)?;
+                fs::copy(&from_dotconfigs_path, &to_config_path)
+                    .map_err(|e| {
+                        eprintln!(
+                            "Failed to copy config: {} to {}: {:#?}",
+                            from_dotconfigs_path.display(),
+                            to_config_path.display(),
+                            e
+                        )
+                    })
+                    .unwrap();
             } else if to_config_path.is_dir() {
-                Self::copy_config_directory(&to_config_path, &from_dotconfigs_path)?;
+                Self::copy_config_directory(&to_config_path, &from_dotconfigs_path)
+                    .map_err(|e| {
+                        eprintln!(
+                            "Failed to copy config dir: {} to {}: {:#?}",
+                            from_dotconfigs_path.display(),
+                            to_config_path.display(),
+                            e
+                        )
+                    })
+                    .unwrap();
             } else {
                 return Err(anyhow::anyhow!("Invalid config path!"));
             }

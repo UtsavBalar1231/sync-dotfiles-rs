@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use ron::{extensions::Extensions, ser::PrettyConfig};
+use std::process::Command;
 use std::{env, path::PathBuf};
 
 /// A macro that fixes a path to ensure it is absolute and not relative.
@@ -308,9 +309,27 @@ where
     }
 
     if to.as_ref().exists() {
-        std::fs::remove_dir_all(&to)?;
+        if let Err(e) = std::fs::remove_dir_all(&to) {
+            match e.kind() {
+                std::io::ErrorKind::PermissionDenied => {
+                    escape_privilege()?;
+                    std::fs::remove_dir_all(&to).expect("PermissionDenied removing directory");
+                }
+
+                _ => println!("Error removing directory: {e}"),
+            }
+        }
     }
-    std::fs::create_dir_all(&to)?;
+    if let Err(e) = std::fs::create_dir_all(&to) {
+        match e.kind() {
+            std::io::ErrorKind::PermissionDenied => {
+                escape_privilege()?;
+                std::fs::create_dir_all(&to).expect("PermissionDenied creating directory");
+            }
+
+            _ => println!("Error creating directory: {e}"),
+        }
+    }
 
     std::fs::read_dir(from)?
         .filter_map(|e| e.ok())
@@ -329,7 +348,9 @@ where
                             )
                         }
                         std::io::ErrorKind::PermissionDenied => {
-                            println!("Permission denied: {:#?}", entry.path().display())
+                            escape_privilege().expect("Failed to escape privilege");
+                            std::fs::copy(entry.path(), to.as_ref().join(entry.file_name()))
+                                .expect("PermissionDenied copying file");
                         }
                         _ => panic!("Error copying file: {e}"),
                     }
@@ -367,4 +388,40 @@ pub fn get_ron_formatter() -> PrettyConfig {
     PrettyConfig::new()
         .depth_limit(2)
         .extensions(Extensions::IMPLICIT_SOME)
+}
+
+/// Escape privilege if necessary.
+///
+/// This function checks if the current user is root or not. If not, it
+/// sets the current user to root and then executes the provided command
+/// with sudo.
+pub fn escape_privilege() -> Result<()> {
+    let uid = unsafe { libc::getuid() };
+    let euid = unsafe { libc::geteuid() };
+
+    match (uid, euid) {
+        (0, 0) => Ok(()),
+        (_uid, 0) => {
+            unsafe { libc::setuid(0) };
+            Ok(())
+        }
+        (_uid, _euid) => {
+            let mut args = std::env::args().collect::<Vec<_>>();
+            if let Some(absolute_path) = std::env::current_exe()?.to_str() {
+                args[0] = absolute_path.to_string();
+            }
+            let mut command = Command::new("/usr/bin/sudo");
+            let mut child = command.args(args).spawn()?;
+
+            if let Ok(ecode) = child.wait() {
+                if !ecode.success() {
+                    std::process::exit(ecode.code().unwrap_or(1));
+                } else {
+                    std::process::exit(0);
+                }
+            }
+
+            Ok(())
+        }
+    }
 }
